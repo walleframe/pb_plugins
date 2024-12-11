@@ -1,0 +1,43 @@
+syntax = "proto2";
+
+import "google/protobuf/descriptor.proto";
+
+package sql;
+
+option go_package = "github.com/walleframe/pb_plugins/extend/sql";
+
+/**
+ * Extension of protobuf file options.
+ */
+extend google.protobuf.FileOptions {
+    optional string db_name  = 20000;  // must set
+    optional string charset  = 20001;  // default: utf8mb4
+    optional string collate  = 20002;  // default: utf8mb4_general_ci
+    optional string pkg_svc  = 20003;  // default: github.com/walleframe/svc_db
+    optional string pkg_util = 20004;  // default: github.com/walleframe/walle/util
+}
+
+/**
+ *Extension of protobuf message options.
+ */
+extend google.protobuf.MessageOptions {
+    optional string tbl_name = 20100;  // default: tbl_[message name]
+    optional string engine   = 20101;  // default: InnoDB
+    optional string unique   = 20102;  // set unique columns
+    optional string index    = 20103;  // set index columns
+    optional bool   gen_ex   = 20104;  // generate extra functions
+    optional bool   update   = 20105;  // generate update function
+    optional bool   insert   = 20106;  // generate insert function
+}
+
+/**
+ * Extension of protobuf field options.
+ */
+extend google.protobuf.FieldOptions {
+    optional bool   pk          = 20200;
+    optional bool   primary_key = 20201;  // alias of pk
+    optional bool   auto_incr   = 20202;
+    optional string type        = 20203;
+    optional int32  size        = 20204;
+    optional string custom      = 20205;
+}

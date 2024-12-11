@@ -1,0 +1,38 @@
+syntax = "proto2";
+
+package redis;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/walleframe/pb_plugins/extend/redis";
+
+message RedisScript {
+    optional string lua   = 1;
+    optional string argv  = 2;
+    optional string reply = 3;
+}
+
+/**
+ * Extension of protobuf file options.
+ */
+extend google.protobuf.FileOptions {
+    optional string pkg_svc  = 21000;  // default: github.com/walleframe/svc_redis
+    optional string pkg_util = 21001;  // default: github.com/walleframe/walle/util
+    optional string pkg_pb   = 21002;  // protobuf message pkg: github.com/gogo/protobuf/proto
+    optional string pkg_wpb  = 21003;  // wpb message, pkg: github.com/walleframe/walle/process/message
+}
+
+/**
+ * Extension of protobuf message options.
+ */
+extend google.protobuf.MessageOptions {
+    optional string      key      = 21100;  // must set
+    optional string      type     = 21101;  // default: only keys. '!' means not key operation. string,hash,set,zset,lock
+    optional int32       key_size = 21102;  // default: 64
+    optional bool        protobuf = 21103;  // default: false
+    optional bool        wpb      = 21104;  // default: false
+    optional string      field    = 21105;  // use merged field
+    optional string      value    = 21106;  // use merged value
+    optional string      member   = 21107;  // use merged member for zset
+    repeated RedisScript script   = 21108;  // redis script support
+}
