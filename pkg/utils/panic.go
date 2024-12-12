@@ -11,21 +11,24 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-syntax = "proto3";
+package utils
 
-import "google/protobuf/descriptor.proto";
+import (
+	"fmt"
+	"os"
+)
 
-package wrpc;
-
-option go_package = "github.com/walleframe/pb_plugins/extend/wrpc";
-
-extend google.protobuf.FileOptions {
-    optional bool stub_client = 22000[retention = RETENTION_SOURCE];  // Generate client stubs.
-}
-
-/**
- * Extension of protobuf service options.
- */
-extend google.protobuf.ServiceOptions {
-    optional bool stub_service = 22100[retention = RETENTION_SOURCE];  // Generate client stubs.
+// PanicIf 如果错误panic
+func PanicIf(err interface{}, tips ...interface{}) {
+	if err == nil {
+		return
+	}
+	if len(tips) > 0 {
+		fmt.Println(tips...)
+	}
+	if Flag.ShowDetail {
+		panic(err)
+	}
+	fmt.Println(err)
+	os.Exit(1)
 }

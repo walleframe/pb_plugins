@@ -1,0 +1,52 @@
+// Copyright 2024 aggronmagi <czy463@163.com>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+syntax = "proto3";
+
+import "google/protobuf/descriptor.proto";
+
+package mysql;
+
+option go_package = "github.com/walleframe/pb_plugins/extend/mysql";
+
+extend google.protobuf.FileOptions {
+    optional string db_name    = 20000 [retention = RETENTION_SOURCE];
+    optional string db_charset = 20001 [retention = RETENTION_SOURCE];
+    optional string db_collate = 20002 [retention = RETENTION_SOURCE];
+    optional string pkg_svc    = 20003 [retention = RETENTION_SOURCE];
+    optional string pkg_util   = 20004 [retention = RETENTION_SOURCE];
+    optional bool   disable_ex = 20005 [retention = RETENTION_SOURCE];
+}
+
+extend google.protobuf.MessageOptions {
+    optional string tbl_name = 20100 [retention = RETENTION_SOURCE];
+    optional bool   ignore   = 20101 [retention = RETENTION_SOURCE];
+    optional string engine   = 20102 [retention = RETENTION_SOURCE];
+    optional string pks      = 20103 [retention = RETENTION_SOURCE];
+    optional string unique   = 20104 [retention = RETENTION_SOURCE];
+    optional string index    = 20105 [retention = RETENTION_SOURCE];
+    optional bool   update   = 20106 [retention = RETENTION_SOURCE];
+    optional bool   upsert   = 20107 [retention = RETENTION_SOURCE];
+    optional bool   tbl_noex = 20108 [retention = RETENTION_SOURCE];
+    optional bool   gen_ex   = 20109 [retention = RETENTION_SOURCE];
+    optional string tbl_opt  = 20110 [retention = RETENTION_SOURCE];
+}
+
+extend google.protobuf.FieldOptions {
+    optional bool   pk        = 20200 [retention = RETENTION_SOURCE];
+    optional bool   increment = 20201 [retention = RETENTION_SOURCE];
+    optional string type      = 20202 [retention = RETENTION_SOURCE];
+    optional int32  size      = 20203 [retention = RETENTION_SOURCE];
+    optional bool   custom    = 20204 [retention = RETENTION_SOURCE];
+    optional string column    = 20205 [retention = RETENTION_SOURCE];
+}

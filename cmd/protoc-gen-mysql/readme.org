@@ -1,0 +1,125 @@
+#+startup: content
+#+title: protoc-gen-mysql
+* protoc-gen-mysql
+通过定义一个protobuf message. 来生成对应的mysql操作管理代码(避免使用反射).生成代码使用 ~sqlx.DB~ 进行数据库操作.
+
+-----
+
+同数据库定义的package名应该相同.同一个数据库生成在一个代码包内.每个表生成一个源码文件.
+
+-----
+可以替换自己的管理包,来实现自定义的配置管理,链接管理等.
+-----
+生成的sql表会自动添加扩展字段.
+
+#+begin_src sql
+`modify_stamp` timestamp default current_timestamp on update current_timestamp
+`create_stamp` timestamp default current_timestamp
+#+end_src
+
+默认情况下, 如果想查询扩展字段,请定义一个 名字带Ex的消息体. 在原结构基础上添加 modify_stamp,create_stamp字段.
+
+例: 原消息是 message Abc. 需要定义 message AbcEx.
+
+-----
+
+表自动同步:
+
+#+begin_quote
+生成代码默认会在服务启动时候,检测表和索引. 修改 ~svc_db.SyncTableColumnsAndIndex~ 来禁用此功能
+#+end_quote
+
+ - 检测数据库内表是否存在,不存在则创建. 如果表已经存在,会检查字段,如果有新增字段,自动添加缺失的字段.
+ - 检测数据库内表所关联的索引是否存在,不存在则创建.
+
+-----
+生成代码中以下接口使用 sql.Stmt. 批量接口和其余接口都是拼接sql.
+ - insert
+ - update
+ - upsert
+ - find
+ - delete
+
+只有设置了Primary Key字段, 才会生成update,upsert,find 相关方法.否则可以使用select配合where使用进行查询,使用insert 进行更新.
+
+生成代码对外暴露了 ~*sqlx.DB~ 指针,可以自定义执行的sql.
+
+生成代码还包含了一个简单的sql语句生成(会根据调用顺序生成sql语句,应该像正常写sql那样去调用),例:
+#+begin_src go
+  db_user.UserInfoNamedSQL(128).Insert().Uid().Email().Name().ToSQL() // insert user_info(`uid`,`email`,`name`) values(:uid,:email,:name)
+	db_user.UserInfoNamedSQL(128).Delete().Email().And().Name().ToSQL() // delete from user_info where `email` = :email and `name` = :name
+	db_user.UserInfoNamedSQL(128).Update().Name().Email().Where().Uid().ToSQL() // update user_info set `name`=:name,`email`=:email where `uid` = :uid
+	db_user.UserInfoNamedSQL(128).Select().Uid().Name().Where().Uid().And().Email().Limit(10, 0).ToSQL() //select `uid`,`name` from user_info where `uid` = :uid and `email` = :email limit 10,0
+
+  // 错误的示例(ERROR EXAMPLE):
+  db_user.UserInfoNamedSQL(128).Update().Email().Where().And().Email().ToSQL() => update user_info set `email`=:email where  and `email` = :email
+#+end_src
+
+
+** 基础配置信息
+| 描述         | 环境变量          | 命令行参数 | 默认值                           |
+|--------------+-------------------+------------+----------------------------------|
+| 服务管理包   | MYSQL_PKG_SVC     | pkg_svc    | github.com/walleframe/svc_db     |
+| 工具包       | MYSQL_PKG_UTIL    | pkg_util   | github.com/walleframe/walle/util |
+|              | MYSQL_COLLATE     | collate    | utf8mb4_general_ci               |
+|              | MYSQL_CHARSET     | charset    | utf8mb4                          |
+| 代码路径     | MYSQL_OPCODE_PATH | code_path  | pkg/gen/mysqlop                  |
+| 禁用扩展字段 | MYSQL_DISABLE_EX  | disable_ex | false                            |
+
+
+uitl包
+ - 主要使用 ~util.Buffer~ 来进行字符串格式化(为了在运行期间尽量少的申请内存).
+
+svc管理包
+ - 使用 ~RawTo...~ , ~AnyFrom...~ 等方法简化生成代码逻辑.
+ - 使用 ~RegisterSyncDBTable~ , ~RegisterDB~ 等管理数据库.
+
+
+配置优先级:
+  - 表级别选项设置
+  - 文件级别选项配置
+  - 命令行参数
+  - 环境变量
+  - 默认值
+** 选项配置
+*** 文件级别
+| 名称             | 类型   | 说明                                               |
+|------------------+--------+----------------------------------------------------|
+| mysql.db_name    | string | 数据库名. 不设置此字段,生成插件会忽略当前proto文件 |
+| mysql.db_charset | string |                                                    |
+| mysql.db_collate | string |                                                    |
+| mysql.pkg_svc    | string | 服务管理包                                         |
+| mysql.pkg_util   | string | 生成辅助包                                         |
+| mysql.disable_ex | bool   | 禁用扩展字段                                       |
+
+*** 消息级别
+| 名称           | 类型   | 默认值       | 说明                                            |
+|----------------+--------+--------------+-------------------------------------------------|
+| mysql.tbl_name | string | tbl_[消息名] | 数据库表名                                      |
+| mysql.ignore   | bool   | false        | 是否忽略当前消息,不生成数据库表                 |
+| mysql.engine   | string | InnoDB       | 数据库引擎                                      |
+| mysql.pks      | string |              | 设置primary key,值为以’,’分隔的字段名称         |
+| mysql.unique   | string |              | unique index. name(column,...);name(column,...) |
+| mysql.index    | string |              | table index. name(column,...);name(column,...)  |
+| mysql.update   | bool   | true         | 是否生成update方法                              |
+| mysql.upsert   | bool   | true         | 是否生成upsert方法                              |
+| mysql.tbl_noex | bool   | false        | 禁用扩展字段                                    |
+| mysql.gen_ex   | bool   | false        | 生成扩展消息接口(如果已经禁用扩展,忽略此字段)   |
+| mysql.tbl_opt  | string |              | 添加自定义数据库表选项                          |
+
+*** 字段级别
+| 名称            | 类型   | 默认值 | 说明                                |
+|-----------------+--------+--------+-------------------------------------|
+| mysql.pk        | bool   | false  |                                     |
+| mysql.increment | bool   | false  | auto_increment                      |
+| mysql.type      | string |        | 手动指定数据库字段类型              |
+| mysql.size      | int32  | 64     | 对string类型设置长度,varchar(size)  |
+| mysql.custom    | bool   | false  | 对本字段,自定义序列化和反序列化函数 |
+| mysql.column    | string |        | 自定义字段设置,全部都需要手动写     |
+**** mysql.column
+手动指定column的全部信息.
+
+设置后忽略 ~mysql.pk~ , ~mysql.increment~ , ~mysql.type~, ~mysql.size~
+**** mysql.type
+只写mysql数据类型,更多定制请采用 ~mysql.column~
+** 代码示例

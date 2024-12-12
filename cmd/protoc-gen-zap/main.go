@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/walleframe/pb_plugins/extend/mysql"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -28,6 +29,8 @@ func main() {
 		fmt.Fprintf(os.Stdout, "See "+genGoDocURL+" for usage information.\n")
 		os.Exit(0)
 	}
+
+	_ = mysql.E_DbName
 
 	var (
 		flags   flag.FlagSet
