@@ -110,7 +110,7 @@ func Generate(tbl *SqlTable) (out []*tpl.BuildOutput, err error) {
 		Data: data,
 	})
 
-	log.Println(tbl.DB, tbl.Name, "generate mysql code success")
+	log.Printf("generate mysql code [%s.%s] success", tbl.DB, tbl.Name)
 
 	return
 }

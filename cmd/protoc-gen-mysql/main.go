@@ -22,7 +22,6 @@ import (
 )
 
 const genGoDocURL = "https://protobuf.dev/reference/go/go-generated"
-const grpcDocURL = "https://grpc.io/docs/languages/go/quickstart/#regenerate-grpc-code"
 
 var (
 	Version = "0.0.1"
@@ -53,8 +52,6 @@ func main() {
 	protogen.Options{
 		ParamFunc: flags.Set,
 	}.Run(func(gen *protogen.Plugin) (err error) {
-
-		log.Println(gen_mysql.Config)
 		err = gen_mysql.InitTemplate()
 		if err != nil {
 			log.Println("gen_mysql InitTemplate error: ", err)
@@ -84,11 +81,9 @@ func genDatabase(gen *protogen.Plugin, file *protogen.File) (err error) {
 		v = def
 		proto.RangeExtensions(file.Proto.Options, func(et protoreflect.ExtensionType, a any) bool {
 			if opt.TypeDescriptor().FullName() == et.TypeDescriptor().FullName() {
-				log.Println("get ext value:", a.(string), "def:", def)
 				v = a.(string)
 				return false
 			}
-			log.Println("want:", opt.TypeDescriptor().FullName(), " range:", et.TypeDescriptor().FullName(), a)
 			return true
 		})
 		return
@@ -211,9 +206,6 @@ func genDBTable(gen *protogen.Plugin, table *gen_mysql.SqlTable, msg *protogen.M
 	if err != nil {
 		return err
 	}
-	_ = primaryKeys
-	_ = indexKeys
-	_ = uniqueKeys
 
 	// generate
 	data, err := gen_mysql.Generate(table)
@@ -286,6 +278,11 @@ func parseMysqlField(table *gen_mysql.SqlTable, field *protogen.Field) (err erro
 		})
 		return
 	}
+
+	// 收集主键
+	if getOptBool(mysql.E_Pk, false) {
+		table.PrimaryKey = append(table.PrimaryKey, col)
+	}
 	//
 	col.Unmarshal = utils.Title(col.GoType)
 	if field.Desc.IsList() {
@@ -312,6 +309,9 @@ func parseMysqlField(table *gen_mysql.SqlTable, field *protogen.Field) (err erro
 	col.SqlType = getOptString(mysql.E_Column, "")
 	if len(col.SqlType) > 0 {
 		if strings.Contains(strings.ToLower(col.SqlType), "auto_increment") {
+			if table.AutoIncr != nil {
+				err = multierr.Append(err, fmt.Errorf("table %s has more than one auto increment column(%s %s)", table.SqlTable, table.AutoIncr.Name, col.Name))
+			}
 			table.AutoIncr = col
 		}
 		return
@@ -363,6 +363,9 @@ func parseMysqlField(table *gen_mysql.SqlTable, field *protogen.Field) (err erro
 	}
 	col.SqlType = getOptString(mysql.E_Type, defaultSqlType) + " not null default " + defaultSqlValue
 	if getOptBool(mysql.E_Increment, false) {
+		if table.AutoIncr != nil {
+			err = multierr.Append(err, fmt.Errorf("table %s has more than one auto increment column(%s %s)", table.SqlTable, table.AutoIncr.Name, col.Name))
+		}
 		table.AutoIncr = col
 		col.SqlType += " auto_increment"
 	}
@@ -374,6 +377,12 @@ func checkAndSetPrimaryKey(table *gen_mysql.SqlTable, primaryKeyConfig string) (
 	// 解析主键
 	primaryKeys := strings.Split(primaryKeyConfig, ",")
 	primaryMap := make(map[string]struct{}, len(primaryKeys))
+
+	// 已经收集的主键字段
+	for _, col := range table.PrimaryKey {
+		primaryMap[col.Name] = struct{}{}
+	}
+
 	for _, pk := range primaryKeys {
 		pk = strings.TrimSpace(pk)
 		if len(pk) == 0 {
