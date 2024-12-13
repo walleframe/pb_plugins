@@ -37,7 +37,6 @@ type SqlTable struct {
 	Columns         []*SqlColumn // normal columns
 	Index           []*SqlIndex  // index columns
 	GenEx           bool         // generate extra method(contain time info)
-	DisableEx       bool         // disable extra struct
 	GenUpdate       bool         // generate update method when have primary key
 	GenUpsert       bool         // generate upsert method when have primary key
 	CustomOptions   string       // custom mysql options
@@ -60,7 +59,9 @@ func (tbl *SqlTable) Clone() *SqlTable {
 		Columns:         make([]*SqlColumn, len(tbl.Columns)),
 		Index:           make([]*SqlIndex, len(tbl.Index)),
 		GenEx:           tbl.GenEx,
-		DisableEx:       tbl.DisableEx,
+		GenUpdate:       tbl.GenUpdate,
+		GenUpsert:       tbl.GenUpsert,
+		CustomOptions:   tbl.CustomOptions,
 	}
 	copy(tmp.InnerAllColumns, tbl.InnerAllColumns)
 	copy(tmp.PrimaryKey, tbl.PrimaryKey)

@@ -53,14 +53,13 @@ db_user.UserInfoNamedSQL(128).Update().Email().Where().And().Email().ToSQL()
 
 
 ** 基础配置信息
-| 描述         | 环境变量          | 命令行参数 | 默认值                           |
-|--------------+-------------------+------------+----------------------------------|
-| 服务管理包   | MYSQL_PKG_SVC     | pkg_svc    | github.com/walleframe/svc_db     |
-| 工具包       | MYSQL_PKG_UTIL    | pkg_util   | github.com/walleframe/walle/util |
-|              | MYSQL_COLLATE     | collate    | utf8mb4_general_ci               |
-|              | MYSQL_CHARSET     | charset    | utf8mb4                          |
-| 代码路径     | MYSQL_OPCODE_PATH | code_path  | pkg/gen/mysqlop                  |
-| 禁用扩展字段 | MYSQL_DISABLE_EX  | disable_ex | false                            |
+| 描述           | 环境变量           | 命令行参数   | 默认值                           |
+|----------------+--------------------+--------------+----------------------------------|
+| 服务管理包     | MYSQL_PKG_SVC      | pkg_svc      | github.com/walleframe/svc_db     |
+| 工具包         | MYSQL_PKG_UTIL     | pkg_util     | github.com/walleframe/walle/util |
+|                | MYSQL_COLLATE      | collate      | utf8mb4_general_ci               |
+|                | MYSQL_CHARSET      | charset      | utf8mb4                          |
+| 代码路径       | MYSQL_OPCODE_PATH  | code_path    | pkg/gen/mysqlop                  |
 
 
 uitl包
@@ -84,24 +83,22 @@ svc管理包
 | mysql.db_name    | string | 数据库名. 不设置此字段,生成插件会忽略当前proto文件 |
 | mysql.db_charset | string |                                                    |
 | mysql.db_collate | string |                                                    |
-| mysql.pkg_svc    | string | 服务管理包                                         |
-| mysql.pkg_util   | string | 生成辅助包                                         |
-| +mysql.disable_ex+ | bool   | +禁用扩展字段+                                     |
 
 *** 消息级别
-| 名称             | 类型   | 默认值       | 说明                                            |
-|------------------+--------+--------------+-------------------------------------------------|
-| mysql.tbl_name   | string | tbl_[消息名] | 数据库表名                                      |
-| mysql.ignore     | bool   | false        | 是否忽略当前消息,不生成数据库表                 |
-| mysql.engine     | string | InnoDB       | 数据库引擎                                      |
-| mysql.pks        | string |              | 设置primary key,值为以’,’分隔的字段名称         |
-| mysql.unique     | string |              | unique index. name(column,...);name(column,...) |
-| mysql.index      | string |              | table index. name(column,...);name(column,...)  |
-| mysql.update     | bool   | true         | 是否生成update方法                              |
-| mysql.upsert     | bool   | true         | 是否生成upsert方法                              |
-| mysql.gen_ex     | bool   | false        | 生成扩展消息接口(如果已经禁用扩展,忽略此字段)   |
-| mysql.tbl_opt    | string |              | 添加自定义数据库表选项                          |
-| +mysql.tbl_noex+ | bool   | false        | +禁用扩展字段+                                  |
+| 名称              | 类型   | 默认值       | 说明                                            |
+|-------------------+--------+--------------+-------------------------------------------------|
+| mysql.tbl_name    | string | tbl_[消息名] | 数据库表名                                      |
+| mysql.ignore      | bool   | false        | 是否忽略当前消息,不生成数据库表                 |
+| mysql.engine      | string | InnoDB       | 数据库引擎                                      |
+| mysql.pks         | string |              | 设置primary key,值为以’,’分隔的字段名称         |
+| mysql.unique      | string |              | unique index. name(column,...);name(column,...) |
+| mysql.index       | string |              | table index. name(column,...);name(column,...)  |
+| mysql.update      | bool   | true         | 是否生成update方法                              |
+| mysql.upsert      | bool   | true         | 是否生成upsert方法                              |
+| mysql.gen_ex      | bool   | false        | 生成扩展消息接口(如果已经禁用扩展,忽略此字段)   |
+| mysql.tbl_opt     | string |              | 添加自定义数据库表选项                          |
+| mysql.tbl_charset | string |              |                                                 |
+| mysql.tbl_collate | string |              |                                                 |
 
 **** mysql.gen_ex
 扩展字段:

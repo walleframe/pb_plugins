@@ -89,25 +89,23 @@ func genDatabase(gen *protogen.Plugin, file *protogen.File) (err error) {
 		return
 	}
 
-	getOptBool := func(opt protoreflect.ExtensionType, def bool) (v bool) {
-		v = def
-		proto.RangeExtensions(file.Proto.Options, func(et protoreflect.ExtensionType, a any) bool {
-			if et.TypeDescriptor().FullName() == opt.TypeDescriptor().FullName() {
-				v = a.(bool)
-				return false
-			}
-			return true
-		})
-		return
-	}
+	// getOptBool := func(opt protoreflect.ExtensionType, def bool) (v bool) {
+	// 	v = def
+	// 	proto.RangeExtensions(file.Proto.Options, func(et protoreflect.ExtensionType, a any) bool {
+	// 		if et.TypeDescriptor().FullName() == opt.TypeDescriptor().FullName() {
+	// 			v = a.(bool)
+	// 			return false
+	// 		}
+	// 		return true
+	// 	})
+	// 	return
+	// }
 
 	table := &gen_mysql.SqlTable{
-		DB:        dbName,
-		Charset:   getOptString(mysql.E_DbCharset, gen_mysql.Config.Charset),
-		Collate:   getOptString(mysql.E_DbCollate, gen_mysql.Config.Collate),
-		DisableEx: getOptBool(mysql.E_DisableEx, false),
+		DB:      dbName,
+		Charset: getOptString(mysql.E_DbCharset, gen_mysql.Config.Charset),
+		Collate: getOptString(mysql.E_DbCollate, gen_mysql.Config.Collate),
 	}
-	table.ToolName = "protoc-gen-mysql"
 
 	for _, msg := range file.Messages {
 		err = genDBTable(gen, table, msg)
@@ -126,7 +124,7 @@ func genDatabase(gen *protogen.Plugin, file *protogen.File) (err error) {
 	return
 }
 
-func genDBTable(gen *protogen.Plugin, table *gen_mysql.SqlTable, msg *protogen.Message) (err error) {
+func genDBTable(gen *protogen.Plugin, conf *gen_mysql.SqlTable, msg *protogen.Message) (err error) {
 	getOptString := func(opt protoreflect.ExtensionType, def string) (v string) {
 		v = def
 		proto.RangeExtensions(msg.Desc.Options(), func(et protoreflect.ExtensionType, a any) bool {
@@ -155,8 +153,13 @@ func genDBTable(gen *protogen.Plugin, table *gen_mysql.SqlTable, msg *protogen.M
 		return
 	}
 
-	// 复制有一份新的表结构
-	table = table.Clone()
+	// 复制有一份新的表结构,避免影响消息级的配置
+	table := &gen_mysql.SqlTable{
+		DB:      conf.DB,
+		Collate: conf.Collate,
+		Charset: conf.Charset,
+	}
+	table.ToolName = "protoc-gen-mysql"
 
 	// 大驼峰转小写加下划线
 	name := pascalToSnake(string(msg.Desc.Name()))
@@ -173,11 +176,10 @@ func genDBTable(gen *protogen.Plugin, table *gen_mysql.SqlTable, msg *protogen.M
 	//
 	table.GenUpdate = getOptBool(mysql.E_Update, true)
 	table.GenUpsert = getOptBool(mysql.E_Upsert, true)
-	table.DisableEx = getOptBool(mysql.E_TblNoex, table.DisableEx)
-	if !table.DisableEx {
-		table.GenEx = getOptBool(mysql.E_GenEx, false)
-	}
+	table.GenEx = getOptBool(mysql.E_GenEx, false)
 	table.CustomOptions = getOptString(mysql.E_TblOpt, "")
+	table.Collate = getOptString(mysql.E_TblCollate, table.Collate)
+	table.Charset = getOptString(mysql.E_TblCharset, table.Charset)
 
 	// primary keys
 	primaryKeys := getOptString(mysql.E_Pks, "")

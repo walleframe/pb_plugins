@@ -98,7 +98,11 @@ func init() {
 }
 
 var {{Title $tbl.Name}}OP = func() {{Title $tbl.Name}}Operation {
-	return global{{Title .Name}}OP.Load()
+	op := global{{Title .Name}}OP.Load()
+	if op == nil {
+		return nil
+	}
+	return op
 }
 
 func {{Title $tbl.Name}}NamedSQL(bufSize int)  *{{Title $tbl.Name}}SQLWriter{

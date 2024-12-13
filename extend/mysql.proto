@@ -23,23 +23,21 @@ extend google.protobuf.FileOptions {
     optional string db_name    = 20000 [retention = RETENTION_SOURCE];
     optional string db_charset = 20001 [retention = RETENTION_SOURCE];
     optional string db_collate = 20002 [retention = RETENTION_SOURCE];
-    optional string pkg_svc    = 20003 [retention = RETENTION_SOURCE];
-    optional string pkg_util   = 20004 [retention = RETENTION_SOURCE];
-    optional bool   disable_ex = 20005 [retention = RETENTION_SOURCE];
 }
 
 extend google.protobuf.MessageOptions {
-    optional string tbl_name = 20100 [retention = RETENTION_SOURCE];
-    optional bool   ignore   = 20101 [retention = RETENTION_SOURCE];
-    optional string engine   = 20102 [retention = RETENTION_SOURCE];
-    optional string pks      = 20103 [retention = RETENTION_SOURCE];
-    optional string unique   = 20104 [retention = RETENTION_SOURCE];
-    optional string index    = 20105 [retention = RETENTION_SOURCE];
-    optional bool   update   = 20106 [retention = RETENTION_SOURCE];
-    optional bool   upsert   = 20107 [retention = RETENTION_SOURCE];
-    optional bool   tbl_noex = 20108 [retention = RETENTION_SOURCE];
-    optional bool   gen_ex   = 20109 [retention = RETENTION_SOURCE];
-    optional string tbl_opt  = 20110 [retention = RETENTION_SOURCE];
+    optional string tbl_name    = 20100 [retention = RETENTION_SOURCE];
+    optional bool   ignore      = 20101 [retention = RETENTION_SOURCE];
+    optional string engine      = 20102 [retention = RETENTION_SOURCE];
+    optional string pks         = 20103 [retention = RETENTION_SOURCE];
+    optional string unique      = 20104 [retention = RETENTION_SOURCE];
+    optional string index       = 20105 [retention = RETENTION_SOURCE];
+    optional bool   update      = 20106 [retention = RETENTION_SOURCE];
+    optional bool   upsert      = 20107 [retention = RETENTION_SOURCE];
+    optional bool   gen_ex      = 20109 [retention = RETENTION_SOURCE];
+    optional string tbl_opt     = 20110 [retention = RETENTION_SOURCE];
+    optional string tbl_charset = 20011 [retention = RETENTION_SOURCE];
+    optional string tbl_collate = 20012 [retention = RETENTION_SOURCE];
 }
 
 extend google.protobuf.FieldOptions {
