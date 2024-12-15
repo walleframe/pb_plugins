@@ -1,5 +1,5 @@
 #+startup: content
-#+title: protoc-gen-mysql
+#+title: mysql生成插件
 * protoc-gen-mysql
 通过定义一个protobuf message. 来生成对应的mysql操作管理代码(避免使用反射).生成代码使用 ~sqlx.DB~ 进行数据库操作.
 
@@ -15,7 +15,7 @@
 表自动同步:
 
 #+begin_quote
-生成代码默认会在服务启动时候,检测表和索引. 修改 ~svc_db.SyncTableColumnsAndIndex~ 来禁用此功能
+生成代码默认会在服务启动时候,检测表和索引. 修改 ~svc_db.SyncTableColumnsAndIndex=false~ 来禁用此功能
 #+end_quote
 
  - 检测数据库内表是否存在,不存在则创建. 如果表已经存在,会检查字段,如果有新增字段,自动添加缺失的字段.
@@ -85,20 +85,50 @@ svc管理包
 | mysql.db_collate | string |                                                    |
 
 *** 消息级别
-| 名称              | 类型   | 默认值       | 说明                                            |
-|-------------------+--------+--------------+-------------------------------------------------|
-| mysql.tbl_name    | string | tbl_[消息名] | 数据库表名                                      |
-| mysql.ignore      | bool   | false        | 是否忽略当前消息,不生成数据库表                 |
-| mysql.engine      | string | InnoDB       | 数据库引擎                                      |
-| mysql.pks         | string |              | 设置primary key,值为以’,’分隔的字段名称         |
-| mysql.unique      | string |              | unique index. name(column,...);name(column,...) |
-| mysql.index       | string |              | table index. name(column,...);name(column,...)  |
-| mysql.update      | bool   | true         | 是否生成update方法                              |
-| mysql.upsert      | bool   | true         | 是否生成upsert方法                              |
-| mysql.gen_ex      | bool   | false        | 生成扩展消息接口(如果已经禁用扩展,忽略此字段)   |
-| mysql.tbl_opt     | string |              | 添加自定义数据库表选项                          |
-| mysql.tbl_charset | string |              |                                                 |
-| mysql.tbl_collate | string |              |                                                 |
+| 名称              | 类型        | 默认值       | 说明                                            |
+|-------------------+-------------+--------------+-------------------------------------------------|
+| mysql.tbl_name    | string      | tbl_[消息名] | 数据库表名                                      |
+| mysql.ignore      | bool        | false        | 是否忽略当前消息,不生成数据库表                 |
+| mysql.engine      | string      | InnoDB       | 数据库引擎                                      |
+| mysql.pks         | string      |              | 设置primary key,值为以’,’分隔的字段名称         |
+| mysql.unique      | string      |              | unique index. name(column,...);name(column,...) |
+| mysql.index       | string      |              | table index. name(column,...);name(column,...)  |
+| mysql.update      | bool        | true         | 是否生成update方法                              |
+| mysql.upsert      | bool        | true         | 是否生成upsert方法                              |
+| mysql.gen_ex      | bool        | false        | 生成扩展消息接口(如果已经禁用扩展,忽略此字段)   |
+| mysql.tbl_opt     | string      |              | 添加自定义数据库表选项                          |
+| mysql.tbl_charset | string      |              |                                                 |
+| mysql.tbl_collate | string      |              |                                                 |
+| mysql.unique_v2   | mysql.Index |              | 更清晰的表示方式                                |
+| mysql.index_v2    | mysql.Index |              | 更清晰的表示方式                                |
+
+**** mysql.index/mysql.unique/mysql.index_v2/mysql.unique_v2
+
+name的值不是最终的索引名, 最终的索引名称: [idx/uniq]_[sql_table_name]_[name]
+
+name如果是驼峰命名,会转换成小写字符加下划线的格式. 大写字母全部会替换成小写的.
+
+*所有的name不能相同,工具会辅助检查*
+
+*不同的索引的合理性由使用者保证,工具不会做检测*
+
+~mysql.index~ 和 ~mysql.unique~ 都是使用字符串拼接,格式是 ~name(column,...);name(column,...)~
+
+~mysql.index_v2~ 和 ~mysql.unique_v2~ 都是使用结构体 ~mysql.Index~. 如下.
+#+begin_src protobuf
+message Index {
+    string          name    = 1;
+    repeated string columns = 2;
+}
+#+end_src
+使用示例:
+#+begin_src protobuf
+option (mysql.index_v2) = {
+	name: "uk3",
+	columns: [ "email", "name", "visitor_id" ]
+};
+#+end_src
+需要建立多个索引就写多个配置.
 
 **** mysql.gen_ex
 扩展字段:

@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/spf13/pflag"
@@ -21,7 +20,7 @@ import (
 	"github.com/walleframe/pb_plugins/pkg/utils"
 )
 
-const genGoDocURL = "https://protobuf.dev/reference/go/go-generated"
+const genGoDocURL = "https://github.com/walleframe/pb_plugins/blob/main/cmd/protoc-gen-mysql/readme.org"
 
 var (
 	Version = "0.0.1"
@@ -63,6 +62,9 @@ func main() {
 				continue
 			}
 			err = genDatabase(gen, f)
+			if err != nil {
+				return err
+			}
 		}
 		//gen.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
 		return
@@ -162,7 +164,7 @@ func genDBTable(gen *protogen.Plugin, conf *gen_mysql.SqlTable, msg *protogen.Me
 	table.ToolName = "protoc-gen-mysql"
 
 	// 大驼峰转小写加下划线
-	name := pascalToSnake(string(msg.Desc.Name()))
+	name := utils.PascalToSnake(string(msg.Desc.Name()))
 
 	// 表引擎
 	table.Engine = getOptString(mysql.E_Engine, "InnoDB")
@@ -205,6 +207,79 @@ func genDBTable(gen *protogen.Plugin, conf *gen_mysql.SqlTable, msg *protogen.Me
 	// 解析索引
 	err = multierr.Append(err, checkAndSetIndex(table, indexKeys, false))
 	err = multierr.Append(err, checkAndSetIndex(table, uniqueKeys, true))
+
+	indexV2 := proto.GetExtension(msg.Desc.Options(), mysql.E_IndexV2).([]*mysql.Index)
+	uniqueV2 := proto.GetExtension(msg.Desc.Options(), mysql.E_UniqueV2).([]*mysql.Index)
+
+	for _, cfg := range indexV2 {
+		idx := &gen_mysql.SqlIndex{
+			Name:     cfg.Name,
+			Columns:  make([]*gen_mysql.SqlColumn, 0, len(cfg.Columns)),
+			IsUnique: false,
+			IdxName:  indexName(table, cfg.Name, false),
+		}
+		for _, col := range cfg.Columns {
+			col = strings.TrimSpace(col)
+			if len(col) == 0 {
+				continue
+			}
+			var column *gen_mysql.SqlColumn
+			for _, c := range table.InnerAllColumns {
+				if c.Name == col {
+					column = c
+					break
+				}
+			}
+			if column == nil {
+				err = multierr.Append(err, fmt.Errorf("index %s column %s not found in table %s",
+					col, cfg.Name, table.SqlTable,
+				))
+				continue
+			}
+			idx.Columns = append(idx.Columns, column)
+		}
+		table.Index = append(table.Index, idx)
+	}
+
+	for _, cfg := range uniqueV2 {
+		idx := &gen_mysql.SqlIndex{
+			Name:     cfg.Name,
+			Columns:  make([]*gen_mysql.SqlColumn, 0, len(cfg.Columns)),
+			IsUnique: true,
+			IdxName:  indexName(table, cfg.Name, true),
+		}
+		for _, col := range cfg.Columns {
+			col = strings.TrimSpace(col)
+			if len(col) == 0 {
+				continue
+			}
+			var column *gen_mysql.SqlColumn
+			for _, c := range table.InnerAllColumns {
+				if c.Name == col {
+					column = c
+					break
+				}
+			}
+			if column == nil {
+				err = multierr.Append(err, fmt.Errorf("index %s column %s not found in table %s",
+					col, cfg.Name, table.SqlTable,
+				))
+				continue
+			}
+			idx.Columns = append(idx.Columns, column)
+		}
+		table.Index = append(table.Index, idx)
+	}
+	// index 名称重复检查
+	indexMap := make(map[string]struct{}, len(table.Index))
+	for _, idx := range table.Index {
+		if _, ok := indexMap[idx.Name]; ok {
+			err = multierr.Append(err, fmt.Errorf("index %s duplicate in table %s", idx.Name, table.SqlTable))
+			continue
+		}
+		indexMap[idx.Name] = struct{}{}
+	}
+
 	if err != nil {
 		return err
 	}
@@ -226,7 +301,7 @@ func genDBTable(gen *protogen.Plugin, conf *gen_mysql.SqlTable, msg *protogen.Me
 // parseMysqlField 解析字段
 func parseMysqlField(table *gen_mysql.SqlTable, field *protogen.Field) (err error) {
 	col := &gen_mysql.SqlColumn{
-		Name:   pascalToSnake(field.GoName), // 大驼峰转小写加下划线
+		Name:   utils.PascalToSnake(field.GoName), // 大驼峰转小写加下划线
 		GoType: field.Desc.Kind().String(),
 	}
 	if field.Desc.IsList() {
@@ -438,7 +513,7 @@ func checkAndSetIndex(table *gen_mysql.SqlTable, indexConfig string, uniqueFlagS
 			Name:     name,
 			Columns:  make([]*gen_mysql.SqlColumn, 0, len(columns)),
 			IsUnique: uniqueFlagSet,
-			IdxName:  "idx_" + table.SqlTable + "_" + name,
+			IdxName:  indexName(table, name, uniqueFlagSet),
 		}
 		table.Index = append(table.Index, idx)
 		for _, col := range columns {
@@ -466,14 +541,9 @@ func checkAndSetIndex(table *gen_mysql.SqlTable, indexConfig string, uniqueFlagS
 	return
 }
 
-var (
-	// 使用正则表达式匹配大写字母, 用于将大驼峰命名转换为小写加下划线的形式
-	reToSnake = regexp.MustCompile("([a-z])([A-Z])")
-)
-
-// pascalToSnake 将大驼峰命名转换为小写加下划线的形式
-func pascalToSnake(pascalStr string) string {
-	// 插入下划线并转换为小写
-	snakeStr := reToSnake.ReplaceAllString(pascalStr, "${1}_${2}")
-	return strings.ToLower(snakeStr)
+func indexName(table *gen_mysql.SqlTable, name string, unique bool) string {
+	if unique {
+		return "uniq_" + table.SqlTable + "_" + utils.PascalToSnake(name)
+	}
+	return "idx_" + table.SqlTable + "_" + utils.PascalToSnake(name)
 }
