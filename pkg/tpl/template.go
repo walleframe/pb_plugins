@@ -31,6 +31,7 @@ import (
 type GoObject struct {
 	// innerImportPkgs 导入包
 	innerImportPkgs []string
+	cache           map[string]string
 	// ToolName 工具名
 	ToolName string
 	// Version 版本
@@ -44,6 +45,22 @@ func (obj *GoObject) Import(pkg, fun string) (_ string) {
 		}
 	}
 	obj.innerImportPkgs = append(obj.innerImportPkgs, pkg)
+	return
+}
+
+func (g *GoObject) Prepare(name, pkg string) {
+	if g.cache == nil {
+		g.cache = make(map[string]string)
+	}
+	g.cache[name] = pkg
+}
+
+func (g *GoObject) UsePackage(name, fun string) (_ string) {
+	pkg, ok := g.cache[name]
+	if !ok {
+		log.Fatalf("package %s not found", name)
+	}
+	g.Import(pkg, "use package")
 	return
 }
 
@@ -106,9 +123,11 @@ func (tpl *GoTemplate) Clone() (*GoTemplate, error) {
 
 func (tpl *GoTemplate) AddImportFunc(obj interface {
 	Import(pkg, fun string) (_ string)
+	UsePackage(name, fun string) (_ string)
 }) {
 	tpl.Funcs(template.FuncMap{
-		"Import": obj.Import,
+		"Import":     obj.Import,
+		"UsePackage": obj.UsePackage,
 	})
 }
 

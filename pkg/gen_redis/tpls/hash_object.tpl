@@ -83,4 +83,4 @@ func (x *x{{$Name}}) IncrBy{{Title $field.Name}}(ctx context.Context, incr int) 
 	return {{$field.Type}}(num), nil
 }
 {{end}}
-{{end}}{{Import "github.com/walleframe/walle/util/rdconv" "Float64ToString"}}
+{{end}}{{UsePackage "rdconv" "Float64ToString"}}

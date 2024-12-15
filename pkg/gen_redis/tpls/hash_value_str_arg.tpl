@@ -1,6 +1,8 @@
 {{ $Name := .Name}} {{$field := .TypeHash.HashDynamic.Field }} {{$value := .TypeHash.HashDynamic.Value }} {{$farg := .TypeHash.HashDynamic.FieldArgs}} {{$varg := .TypeHash.HashDynamic.ValueArgs}}
 {{- if $value -}}
-	{{- if eq $value.Type "string" -}}
+	{{- if $value.MarshalPkg }}
+		util.BytesToString(data)
+	{{- else if eq $value.Type "string" -}}
 		value
 	{{- else -}}
 		rdconv.{{$value.RedisFunc}}ToString(value)

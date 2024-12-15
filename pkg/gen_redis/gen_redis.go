@@ -24,36 +24,44 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/walleframe/pb_plugins/pkg/gen_redis/keyarg"
 	"github.com/walleframe/pb_plugins/pkg/tpl"
 	"github.com/walleframe/pb_plugins/pkg/utils"
 )
 
 type GenerateEnv struct {
-	ProtobufPackage string
-	WProtoPackage   string
-	ServicePackage  string
-	UtilPkg         string
-	CodePath        string
+	PkgPB       string
+	PkgJson     string
+	PkgSvc      string
+	PkgUtil     string
+	PkgTime     string
+	CodePath    string
+	MsgProtocol string
+	//PkgWPB        string
+	OpAnotherFile bool
 }
 
 var Config = &GenerateEnv{
-	ProtobufPackage: "", // github.com/gogo/protobuf/proto
-	WProtoPackage:   "github.com/walleframe/walle/process/message",
-	ServicePackage:  "github.com/walleframe/svc_redis",
-	UtilPkg:         "github.com/walleframe/walle/util",
-	CodePath:        "pkg/gen/redisop/",
+	PkgJson:     "encoding/json",
+	PkgPB:       "google.golang.org/protobuf/proto", // github.com/gogo/protobuf/proto
+	PkgSvc:      "github.com/walleframe/svc_redis",
+	PkgUtil:     "github.com/walleframe/walle/util",
+	PkgTime:     "github.com/walleframe/walle/util/wtime",
+	CodePath:    "pkg/gen/redisop/",
+	MsgProtocol: "proto",
+	//PkgWPB:        "github.com/walleframe/walle/process/message",
+	OpAnotherFile: false,
 }
 
-var envFlag = struct {
-}{}
-
-func init() {
-
-	utils.GetEnvString("WREDIS_PB_PKG", &Config.ProtobufPackage)
-	utils.GetEnvString("WREDIS_WPB_PKG", &Config.WProtoPackage)
-	utils.GetEnvString("WREDIS_SVC_PKG", &Config.ServicePackage)
-	utils.GetEnvString("WREDIS_UTIL_PKG", &Config.UtilPkg)
-	utils.GetEnvString("WREDIS_OPCODE_PATH", &Config.CodePath)
+func ParseConfigFromEnv() {
+	utils.GetEnvString("REDIS_PKG_PB", &Config.PkgPB)
+	utils.GetEnvString("REDIS_PKG_SVC", &Config.PkgSvc)
+	utils.GetEnvString("REDIS_PKG_UTIL", &Config.PkgUtil)
+	utils.GetEnvString("REDIS_PKG_TIME", &Config.PkgTime)
+	utils.GetEnvString("REDIS_OPCODE_PATH", &Config.CodePath)
+	utils.GetEnvString("REDIS_MSG_PROTOCOL", &Config.MsgProtocol)
+	// utils.GetEnvString("REDIS_PKG_WPB", &Config.PkgWPB)
+	utils.GetEnvBool("REDIS_OP_ANOTHER", &Config.OpAnotherFile)
 }
 
 //go:embed redis.tpl
@@ -104,10 +112,16 @@ func InitTemplate() (err error) {
 
 			return buf.String(), nil
 		},
+		"Import": func(pkg, alias string) string {
+			return fmt.Sprintf("import %s \"%s\"", alias, pkg)
+		},
+		"UsePackage": func(pkg, alias string) string {
+			return fmt.Sprintf("import %s \"%s\"", alias, pkg)
+		},
 	})
 
 	// 解析前置的全部模板
-	fs.WalkDir(redisOpTpls, ".", func(path string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(redisOpTpls, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -122,6 +136,8 @@ func InitTemplate() (err error) {
 		k := strings.TrimSuffix(path, filepath.Ext(path))
 		k = strings.TrimPrefix(k, "tpls/")
 
+		log.Println("regiester key:", k)
+
 		ts := fmt.Sprintf(`{{define "%s"}} %s {{end}}`, k, strings.TrimSpace(string(data)))
 		err = gen.Parse(ts)
 		if err != nil {
@@ -131,17 +147,39 @@ func InitTemplate() (err error) {
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	err = gen.Parse(redisTpl)
 	if err != nil {
 		return err
 	}
 
+	keyarg.WTimePkg = Config.PkgTime
+
+	switch Config.MsgProtocol {
+	case "proto":
+		if len(Config.PkgPB) == 0 {
+			return fmt.Errorf("USE_PROTOBUF is true, but REDIS_PKG_PB is empty")
+		}
+	case "json":
+		if len(Config.PkgJson) == 0 {
+			return fmt.Errorf("USE_PROTOBUF is false, but REDIS_PKG_WPB is empty")
+		}
+	default:
+		return fmt.Errorf("unknown message protocol %s", Config.MsgProtocol)
+	}
+
+	log.Println("init redis template success")
+
 	return nil
 }
 
-func Generate(tbl *RedisObject) (out []*tpl.BuildOutput, err error) {
-	tbl.Version = "0.0.1"
+func Generate(obj *RedisObject) (out []*tpl.BuildOutput, err error) {
+	obj.Version = "0.0.1"
+	obj.SvcPkg = filepath.Base(Config.PkgSvc)
+	//obj.WPbPkg = filepath.Base(Config.PkgWPB)
 
 	// genTpl, err := gen.Clone()
 	// if err != nil {
@@ -149,41 +187,45 @@ func Generate(tbl *RedisObject) (out []*tpl.BuildOutput, err error) {
 	// }
 	genTpl := gen
 
-	genTpl.AddImportFunc(tbl)
+	genTpl.AddImportFunc(obj)
 
 	for _, pkg := range []string{
 		"context",
 		"github.com/redis/go-redis/v9",
-		"github.com/walleframe/walle/util",
-		"github.com/walleframe/walle/util/rdconv",
 	} {
-		tbl.Import(pkg, "pkg")
+		obj.Import(pkg, "pkg")
 	}
 
-	tbl.Import(Config.UtilPkg, "util.Builder")
-	tbl.Import(filepath.Join(Config.UtilPkg, "rdconv"), "AnyToString/Int64ToString/...")
-	tbl.Import(Config.ServicePackage, "RegisterDBName/GetDBLink")
+	obj.Prepare("rdconv", filepath.Join(Config.PkgUtil, "rdconv"))
+	obj.Prepare("wtime", Config.PkgTime)
+	obj.Prepare("util", Config.PkgUtil)
 
-	for _, arg := range tbl.Args {
+	obj.Prepare("proto", Config.PkgPB)
+	obj.Prepare("json", Config.PkgJson)
+
+	// obj.Import(Config.PkgUtil, "util.Builder")
+	obj.Import(Config.PkgSvc, "RegisterDBName/GetDBLink")
+
+	for _, arg := range obj.Args {
 		for _, pkg := range arg.Imports() {
 			if pkg == "" {
 				continue
 			}
-			tbl.Import(pkg, "keyargv")
+			obj.Import(pkg, "keyargv")
 		}
 	}
 
-	data, err := genTpl.Exec(tbl)
+	data, err := genTpl.Exec(obj)
 	if err != nil {
 		return nil, err
 	}
 
 	out = append(out, &tpl.BuildOutput{
-		File: filepath.Join(Config.CodePath, strings.ToLower(tbl.Package), strings.ToLower(tbl.Name)+".redisop.go"),
+		File: filepath.Join(Config.CodePath, strings.ToLower(obj.Package), strings.ToLower(obj.Name)+".redisop.go"),
 		Data: data,
 	})
 
-	log.Println(tbl.Package, tbl.Name, "generate redis code success")
+	log.Println(obj.Package, obj.Name, "generate redis code success")
 
 	return
 }

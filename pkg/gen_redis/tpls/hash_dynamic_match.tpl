@@ -72,8 +72,14 @@ func (x *x{{.Name}}) GetField(ctx context.Context, {{GenTypeTemplate "hash_field
 	v, err := x.rds.HGet(ctx, x.key, {{GenTypeTemplate "hash_filed_str_arg" .}}).Result()
 	if err != nil {
 		return
+	}{{- if $value.MarshalPkg }}
+	value = &{{$value.Type}}{}
+	err = {{$value.MarshalPkg}}.Unmarshal(util.StringToBytes(v), value)
+	if err != nil {
+		return
 	}
-	return rdconv.StringTo{{$value.RedisFunc}}(v)
+	return{{else}}
+	return rdconv.StringTo{{$value.RedisFunc}}(v){{end}}
 {{- end}}
 {{- else }}
 	v, err := x.rds.HGet(ctx, x.key, {{GenTypeTemplate "hash_filed_str_arg" .}}).Result()
@@ -84,6 +90,11 @@ func (x *x{{.Name}}) GetField(ctx context.Context, {{GenTypeTemplate "hash_field
 {{ end -}}
 }
 func (x *x{{.Name}}) SetField(ctx context.Context, {{GenTypeTemplate "hash_field_func_arg" .}} {{GenTypeTemplate "hash_value_func_arg" .}}) (err error) {
+{{- if $value}}{{if $value.MarshalPkg }}
+	data, err := {{ $value.MarshalPkg }}.Marshal(value)
+	if err != nil {
+		return err
+	} {{- end }}{{end}}
 	num, err := x.rds.HSet(ctx, x.key, {{GenTypeTemplate "hash_filed_str_arg" .}}, {{GenTypeTemplate "hash_value_str_arg" .}}).Result()
 	if err != nil {
 		return err
@@ -160,8 +171,22 @@ func (x *x{{.Name}}) HKeysRange(ctx context.Context, filter func({{GenTypeTempla
 {{end}}
 
 {{if $value}}
-func (x *x{{.Name}}) HVals(ctx context.Context) (vals []{{$value.Type}}, err error) {
-{{- if eq $value.Type "string"}}
+func (x *x{{.Name}}) HVals(ctx context.Context) (vals []{{if $value.MarshalPkg}}*{{end}}{{$value.Type}}, err error) {
+{{- if $value.MarshalPkg}}
+	ret, err := x.rds.HVals(ctx, x.key).Result()
+	if err != nil {
+		return
+	}
+	for _, v := range ret {
+		val := &{{$value.Type}}{}
+		err = {{ $value.MarshalPkg }}.Unmarshal(util.StringToBytes(v), val)
+		if err != nil {
+			return nil, err
+		}
+		vals = append(vals, val)
+	}
+	return
+{{- else if eq $value.Type "string"}}
 	return x.rds.HVals(ctx, x.key).Result()
 {{- else }}
 	ret, err := x.rds.HVals(ctx, x.key).Result()
@@ -179,13 +204,22 @@ func (x *x{{.Name}}) HVals(ctx context.Context) (vals []{{$value.Type}}, err err
 {{- end}}
 }
 
-func (x *x{{.Name}}) HValsRange(ctx context.Context, filter func({{$value.Type}}) bool)(error) {
+func (x *x{{.Name}}) HValsRange(ctx context.Context, filter func({{if $value.MarshalPkg}}*{{end}}{{$value.Type}}) bool)(error) {
 	ret, err := x.rds.HVals(ctx, x.key).Result()
 	if err != nil {
 		return err
 	}
 	for _, v := range ret {
-{{if eq $value.Type "string" }}
+{{ if $value.MarshalPkg}}
+		val :=&{{$value.Type}}{}
+		err = {{ $value.MarshalPkg }}.Unmarshal(util.StringToBytes(v), val)
+		if err != nil {
+			return err
+		}
+		if !filter(val) {
+			return nil
+		}
+{{else if eq $value.Type "string" }}
 		if !filter(v) {
 			return nil
 		}
@@ -275,12 +309,12 @@ func (x *x{{.Name}}) HLen(ctx context.Context) (count int64, err error) {
 {{end}}
 
 {{if .TypeHash.HashDynamic.GenMap }}
-func (x *x{{.Name}}) HRandFieldWithValues(ctx context.Context, count int) (vals map[{{$field.Type}}]{{$value.Type}}, err error) {
+func (x *x{{.Name}}) HRandFieldWithValues(ctx context.Context, count int) (vals map[{{$field.Type}}]{{if $value.MarshalPkg}}*{{end}}{{$value.Type}}, err error) {
 	ret, err := x.rds.HRandFieldWithValues(ctx, x.key, count).Result()
 	if err != nil {
 		return
 	}
-	vals = make(map[{{$field.Type}}]{{$value.Type}}, len(ret))
+	vals = make(map[{{$field.Type}}]{{if $value.MarshalPkg}}*{{end}}{{$value.Type}}, len(ret))
 	for _, v := range ret {
 {{if eq $field.Type "string" -}}
 		key := v.Key
@@ -290,15 +324,22 @@ func (x *x{{.Name}}) HRandFieldWithValues(ctx context.Context, count int) (vals 
 			return nil, err
 		}
 {{end -}}
-{{ if eq $value.Type "string" -}}
-		val := v.Value
+{{ if $value.MarshalPkg }}
+		value := &{{$value.Type}}{}
+		err = {{$value.MarshalPkg}}.Unmarshal(util.StringToBytes(v.Value), value)
+		if err != nil {
+			return nil, err
+		}
+		vals[key] = value
+{{ else if eq $value.Type "string" -}}
+		vals[key] = v.Value
 {{else -}}
 		val, err := rdconv.StringTo{{$value.RedisFunc}}(v.Value)
 		if err != nil {
 			return nil, err
 		}
-{{end -}}
 		vals[key] = val
+{{end -}}
 	}
 	return
 }
@@ -327,7 +368,13 @@ func (x *x{{.Name}}) HRandFieldWithValuesRange(ctx context.Context, count int, f
 {{end}}
 
 {{if $value}}
-{{if eq $value.Type "string" -}}
+{{ if $value.MarshalPkg }}
+		val := &{{$value.Type}}{}
+		err = {{$value.MarshalPkg }}.Unmarshal(util.StringToBytes(v.Value), val)
+		if err != nil {
+			return err
+		}
+{{else if eq $value.Type "string" -}}
 		val := v.Value
 {{else -}}
 		val, err := rdconv.StringTo{{$value.RedisFunc}}(v.Value)
@@ -351,9 +398,9 @@ func (x *x{{.Name}}) HRandFieldWithValuesRange(ctx context.Context, count int, f
 	return
 }
 {{if .TypeHash.HashDynamic.GenMap }}
-func (x *x{{.Name}}) HScan(ctx context.Context, match string, count int) (vals map[{{$field.Type}}]{{$value.Type}}, err error) {
+func (x *x{{.Name}}) HScan(ctx context.Context, match string, count int) (vals map[{{$field.Type}}]{{if $value.MarshalPkg}}*{{end}}{{$value.Type}}, err error) {
 	cursor := uint64(0)
-	vals = make(map[{{$field.Type}}]{{$value.Type}})
+	vals = make(map[{{$field.Type}}]{{if $value.MarshalPkg}}*{{end}}{{$value.Type}})
 	var kvs []string
 	for {
 		kvs, cursor, err = x.rds.HScan(ctx, x.key, cursor, match, int64(count)).Result()
@@ -369,7 +416,13 @@ func (x *x{{.Name}}) HScan(ctx context.Context, match string, count int) (vals m
 				return nil, err
 			}
 {{end -}}
-{{if eq $value.Type "string" -}}
+{{ if $value.MarshalPkg }}
+			val := &{{$value.Type}}{}
+			err = {{$value.MarshalPkg }}.Unmarshal(util.StringToBytes(kvs[k+1]), val)
+			if err != nil {
+				return nil, err
+			}
+{{else if eq $value.Type "string" -}}
 			val := kvs[k+1]
 {{else -}}
 			val, err := rdconv.StringTo{{$value.RedisFunc}}(kvs[k+1])
@@ -412,8 +465,14 @@ func (x *x{{.Name}}) HScanRange(ctx context.Context, match string, count int, fi
 	}
 {{- end}}
 {{if $value}}
-{{if eq $value.Type "string" -}}
-		val := kvs[k+1]
+{{ if $value.MarshalPkg }}
+			val := &{{$value.Type}}{}
+			err = {{$value.MarshalPkg }}.Unmarshal(util.StringToBytes(kvs[k+1]), val)
+			if err != nil {
+				return err
+			}
+{{else if eq $value.Type "string" -}}
+			val := kvs[k+1]
 {{else -}}
 			val, err := rdconv.StringTo{{$value.RedisFunc}}(kvs[k+1])
 			if err != nil {
@@ -436,4 +495,4 @@ func (x *x{{.Name}}) HScanRange(ctx context.Context, match string, count int, fi
 		}
 	}
 	return
-}
+}{{UsePackage "rdconv" "ToString/FronString"}}

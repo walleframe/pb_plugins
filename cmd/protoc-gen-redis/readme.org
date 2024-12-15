@@ -1,0 +1,326 @@
+#+startup: content
+#+title: redis插件文档
+* protoc-gen-redis
+
+通过定义一个protobuf message. 来生成对应的mysql操作管理代码(避免使用反射).
+
+生成代码使用的redis库是: ~github.com/redis/go-redis/v9~
+
+------
+
+约定:
+ - *必须在消息级定义 ~redis.key~ option才会生成redis代码.*
+ - *生成redis操作的代码和操作的结构体不在一个包内.*
+ - 同一个消息/key 只能定义一种数据类型,防止误操作.
+
+------
+*protoc-gen-redis 有两种使用方式.*
+ - 默认将消息体本身作为操作对象,每种redis类型各有差异.
+ - 定义的消息体本身只用来解析,用于生成redis操作.
+
+之所以区分两种使用方式,主要是为了避免生成不必要的protobuf文件.
+
+如果将操作的对象结构体放在a.proto内, op.proto定义redis行为,那么op.proto可以不生成pb文件.
+
+第二种方式通过使用环境变量 ~REDIS_OP_ANOTHRER~ 或者命令行参数 ~op_another~ 来指定默认行为.
+------
+
+全局指定消息的序列化方法通过设置全局变量 ~REDIS_MSG_PROTOCOL=proto~ 或者命令行参数 ~msg_protobuf=proto~ 来设置.
+
+默认支持2种序列化方式.
+ - proto => google protobuf message
+ - json
+
+单独某个消息可以使用 ~redis.json=true~ , ~redis.pb=true~ 来指定特定的序列化方式.
+
+自定义序列化和反序列化可以自己写一个名为proto的包,提供Marshal和Unmashal,以及Message接口定义. 通过 ~REDIS_PKG_PB~ 或者  ~pkg_protobuf~ 来修改包路径
+
+
+------
+
+
+** 基础配置信息
+| 描述               | 环境变量           | 命令行参数   | 默认值                                 |
+|--------------------+--------------------+--------------+----------------------------------------|
+| 代码路径           | REDIS_OPCODE_PATH  | code_path    | pkg/gen/redisop                        |
+| 服务管理包         | REDIS_PKG_SVC      | pkg_svc      | github.com/walleframe/svc_redis        |
+| 工具包             | REDIS_PKG_UTIL     | pkg_util     | github.com/walleframe/walle/util       |
+|                    | REDIS_PKG_PB       | pkg_protobuf | google.golang.org/protobuf/proto       |
+|                    | REDIS_PKG_TIME     | pkg_time     | github.com/walleframe/walle/util/wtime |
+|                    | REDIS_PKG_JSON     | pkg_json     | encoding/json                          |
+| 默认行为           | REDIS_OP_ANOTHRER  | op_another   | false                                  |
+| 全局消息序列化方法 | REDIS_MSG_PROTOCOL | msg_protocol | proto                                  |
+
+
+uitl包
+ - 主要使用 ~util.Buffer~ 来进行字符串格式化(为了在运行期间尽量少的申请内存).
+
+svc管理包
+ - 使用 ~RawTo...~ , ~AnyFrom...~ 等方法简化生成代码逻辑.
+ - 使用 ~RegisterDB~ 等管理数据库.
+
+
+配置优先级:
+  - 命令行参数
+  - 环境变量
+  - 默认值
+
+
+** 选项配置
+文件级选项:
+| options    | type   | default   | desc                        |
+|------------+--------+-----------+-----------------------------|
+| op_package | string | file name | 指定生成包名,默认使用文件名 |
+
+
+以下全是消息级option定义.
+| options                 | type   | default         | desc                              |
+|-------------------------+--------+-----------------+-----------------------------------|
+| redis.key               | string |                 | key 定义                          |
+| redis.size              | int    | 64              | key 预估大小,默认64               |
+| redis.type              | string |                 | redis对应结构体类型               |
+| redis.op_field          | bool   | false           | 是否不操作消息体本身,而是操作字段 |
+| redis.field/redis.value | string |                 | 详情见 hash/set/zset类型          |
+| redis.member            | string | string          | redis-zet用来定义member拼接       |
+| redis.script            | struct | RedisScript数组 | 详情见 redis script               |
+| redis.json              | bool   | false           | 指定使用json格式序列化            |
+| redis.pb                | bool   | false           | 指定使用二进制序列化              |
+
+~redis.type~ 定义的对应的redis数据类型. ~string/hash/zset/set/lock~
+互斥. '!' 开头屏蔽redis keys 相关操作生成. 例: ~redis.key="!string"~
+
+#+begin_src protobuf
+message RedisScript {
+    string name  = 1;
+    string lua   = 2;
+    string argv  = 3;
+    string reply = 4;
+}
+#+end_src
+
+
+** key 定义
+默认使用 ~:~ 分隔key的每一个部分. 每个部分的字符必须是 ~a-z A-Z 0-9~.
+
+例: ~userdata:123~
+
+*** 时间戳 @time-func[op]
+使用 ~@~ 开头,后接获取时间戳函数.可以对时间进行 ~+~ / ~-~ / ~%~ 操作.
+
+支持的函数有:
+| function   | type   | func                    | desc                                               |
+|------------+--------+-------------------------+----------------------------------------------------|
+| daystamp   | int64  | wtime.DayStamp()        | current day 00:00:00                               |
+| weekstamp  | int64  | wtime.WeekStamp()       | current week first day  00:00:00                   |
+| monthstamp | int64  | wtime.MonthStamp()      | current month 1st 00:00:00                         |
+| yearstamp  | int64  | wtime.YearStamp()       | current year January 1st 00:00:00                  |
+| curday     | string | wtime.CurDayString()    | current day, format '20060102'                     |
+| nextday    | string | wtime.NextDayString()   | next day, format '20060102'                        |
+| curweek    | string | wtime.CurWeekString()   | current week first day 00:00:00, format '20060102' |
+| nextweek   | string | wtime.NextWeekString()  | next week first day 00:00:00, format '20060102'    |
+| curmonth   | string | wtime.CurMonthString()  | current month 1st,format '200601'                  |
+| nextmonth  | string | wtime.NextMonthString() | next  month 1st,format '200601'                    |
+| curyear    | string | wTime.CurYearString()   |                                                    |
+| nextyear   | string | wtime.NextYearString()  |                                                    |
+
+例:
+#+begin_example
+u:login:@daystamp
+
+u:check:@month+3600:xx
+
+xx:@weestamp-1800:xx
+#+end_example
+
+*** 外部输入 go类型参数 $[arg-name=]go-type[op]
+使用 ~$~ 开头,可选的设置参数名称(影响生成代码).可以对数值进行 ~+~ / ~-~ / ~%~ 操作.
+支持go基础类型: ~int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64, bool, string~
+
+例:
+#+begin_example
+xx:$uint64:xxx
+
+xx:$uid=int64:xxx
+
+xx:$name=string:xx
+#+end_example
+
+** redis-string
+~redis.type = "string"~
+
+*** 未设置 ~REDIS_OP_ANOTHRER~ 时
+默认将消息体本身作为序列化对象. 序列化方式请根据需要指定全局方式或者单独指定格式. 例如想单独使用json序列化,请设置 ~redis.json=true~.
+
+例:
+#+begin_src protobuf
+message PlayerInfoJson {
+    option (redis.type) = "string";
+    option (redis.key)  = "u:info:$uid=int64";
+    option (redis.size) = 32;
+	  option (redis.json) = true;
+
+    int64  id      = 1;
+    string name    = 2;
+    int32  level   = 3;
+    int32  exp     = 4;
+}
+#+end_src
+对应redis结构
+#+begin_src shell
+redis-cli get get u:info:11 => uid=11
+"{\"id\":11,\"name\":\"x\",\"level\":1,\"exp\":1}"
+#+end_src
+
+*** 设置 ~REDIS_OP_ANOTHRER~ 或者 ~redis.op_field=true~
+
+**** 空消息体,没有字段.生成通用消息接口.
+
+  生成消息通用接口. 即操作对象是 ~proto.Message~ 或者 json
+
+**** 1个字段的结构体. 生成直接操作这个字段类型的接口
+ - *不支持 bool/[]byte 类型*
+ - 数值类型,浮点类型,string类型,将生成对应类型get/set接口
+   例:
+   #+begin_src protobuf
+message RedisStringOpInt32 {
+    option (redis.type)     = "string";
+    option (redis.key)      = "u:int32:$uid=int64";
+    option (redis.size)     = 32;
+    option (redis.op_field) = true;
+
+    int32 value = 1;
+}
+   #+end_src
+   对应redis结构
+   #+begin_src shell
+redis-cli get u:int32:1 => uid=1
+"1"                     => value=1
+   #+end_src
+ - 自定义类型 生成操作指定类型的接口
+   同未设置  ~REDIS_OP_ANOTHRER~ 时候,只是操作的是字段类型的结构体.
+
+**** 2个及2个以上的字段, *不支持*
+** redis-hash
+~redis.type = "hash"~
+
+ ~redis.field/redis.value~ 用来指定如何拼接 redis hash的field,和value值. 规则参考key定义中的外部输入go类型.
+例:
+#+begin_src protobuf
+message RedisHashOp {
+    option (redis.type)  = "hash";
+    option (redis.key)   = "x:hash:$xx=int64";
+    option (redis.size)  = 32;
+    option (redis.field) = "$k1=int8:$k2=uint8";
+    option (redis.value) = "$v1=uint8";
+}
+#+end_src
+对应redis结构
+#+begin_src shell
+redis-cli hgetall x:hash:11 => x=11
+1) "1:2"                    => k1=1 k2=2
+2) "1"                      => v1=1
+3) "1:3"                    => k1=1 k2=3
+4) "3"                      => v1=3
+#+end_src
+
+同时设置 ~redis.field/redis.value~ 后直接按照拼接规则生成.忽略其他选项(只要有拼接数据存在,就不会生成返回map结构的接口.)
+*** 未设置 ~REDIS_OP_ANOTHRER~ 时
+将结构体展开,每个字段 字段名对应一个field, 字段的值是value.
+
+例:
+#+begin_src protobuf
+message RedisHashOpMessage {
+    option (redis.type) = "hash";
+    option (redis.key)  = "u:hash:$uid=int64";
+    option (redis.size) = 32;
+
+    int32  level = 1;
+    string name  = 2;
+}
+#+end_src
+
+对应redis结构
+#+begin_src shell
+redis-cli hgetall u:hash:111 => uid=111
+1) "level"
+2) "10"
+3) "name"
+4) "xx"
+#+end_src
+
+*** 设置 ~REDIS_OP_ANOTHRER~ 或者 ~redis.op_field=true~
+**** 空消息体,没有字段. *不支持*
+**** 1个字段的结构体.
+ - 未设置 ~redis.field/redis.value~ ,仅支持消息类型. 将自定义类型展开,自定义类型的字段必须都是基础数据类型.
+   生成hmget,hmset,hset,hget,hincr,hgetall等.
+ - 设置了 ~redis.field/redis.value~ 其中一个, 字段就是另外一个值.
+   只要有拼接数据存在,就不会生成返回map结构的接口.
+
+   比如设置了 ~redis.field~ ,结构体中的字段就是 hash结构的value类型.
+*** 2个字段的结构体.
+ - 第一个字段 定义field类型,第二个字段 定义value类型. 支持scan操作.
+ - field 类型仅支持基础类型
+   如果是float,bytes,不会生成返回map结构体接口.
+ - value 类型支持基础数据类型和自定义结构体类型.
+
+*** +3个字段结构体+ *不支持*
++第一个字段结构体, 第二三个字段配置 动态字段类型和动态value类型.+
++NOTE: 不生成hgetall接口+
+
+需要调整hvals,hfields,range等接口实现,有实际需求再弄.
+
+** redis-set
+*** 空消息体,没有字段.
+ - 设置 ~WREDIS_PB_PKG~ 环境变量,在消息体级设置选项 ~redis.protobuf=true~ 将生成通用pb相关接口
+ - 设置 ~WREDIS_WPB_PKG~ 环境变量(默认已经设置),在消息体级设置选项 ~redis.wproto~ 将生成通用walle message相关接口
+ - 默认生成操作string类型接口
+
+*** 1个字段的结构体
+ - *不支持 bool 类型*
+ - 未生成集合类型相关接口(有需要再加)
+ - 自定义类型 默认认为结构体是walle message结构体.
+   通过设置 ~WREDIS_PB_PKG~ 环境变量和选项 ~redis.protobuf=true~ ,生成代码会认为结构体是protobuf message.
+
+*** 2个及2个以上的字段, *不支持*
+
+** redis-zset
+- member*不支持 bool 类型*,score 仅支持有符号的数值和float类型.
+- member如果是自定义类型 默认认为结构体是walle message结构体.
+  通过设置 ~WREDIS_PB_PKG~ 环境变量和选项 ~redis.protobuf=true~ ,生成代码会认为结构体是protobuf message.
+- member 是string类型时候,支持通过 ~redis.member~ 进行拼接. 规则参考 ~redis.field~.
+*** 空消息体,没有字段. *不支持*
+
+*** 1个字段的结构体.
+  - filed 1 是member
+  - score 默认是 float64 类型
+
+*** 2个字段
+  - filed 1 是member
+  - field 2 是score.
+*** 3个及3个以上的字段, *不支持*
+** redis脚本
+只支持生成对一个key进行操作的redis script相关代码. 同一个key(message)定义,可以添加多个脚本.
+
+定义一个redis script,必须设置3个选项:
+ 1. 以 ~redis.script.~ 开头
+ 2. 以 ~.lua~ 结尾,定义实际lua脚本数据.
+ 3. 以 ~.argv~ 结尾,定义脚本参数. 规则参考 ~redis.field~.
+ 4. 以 ~.reply~ 结尾, 定义脚本返回值. 规则参考 ~redis.field~.
+
+
+例如定义名为 ~operate_name~ 的脚本.
+#+begin_example
+redis.script.operate_name.lua = "lua script";
+redis.script.operate_name.argv = "$x1=int32:$x2=int8:$string";
+redis.script.operate_name.reply = "$count=int32";
+#+end_example
+
+脚本参数和脚本返回值必须设置不冲突的名称.
+
+** lock 分布式锁
+
+~redis.type = "lock"~
+
+** TODO: redis-bitmap 有需求再弄.
+
+** NOTE: redis list/pubsub/stream/zpop 不封装在这个生成里面,之后会封成pipeline接口.

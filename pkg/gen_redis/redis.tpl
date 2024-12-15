@@ -55,6 +55,8 @@ func (x *x{{.Name}}) Key() string {
 {{if .TypeString.Custom}}
 	 {{if .TypeString.Protobuf}}
 {{GenTypeTemplate "string_custom_protobuf" .}}
+	{{else if .TypeString.Json}}
+{{GenTypeTemplate "string_custom_json" .}}
 	{{else}}
 {{GenTypeTemplate "string_custom_walle" .}}
 	{{end}}
@@ -64,6 +66,7 @@ func (x *x{{.Name}}) Key() string {
 {{if .TypeString.String }} {{GenTypeTemplate "string_string" .}} {{end}}
 {{if .TypeString.Protobuf }} {{GenTypeTemplate "string_protobuf" .}} {{end}}
 {{if .TypeString.WProto }} {{GenTypeTemplate "string_walle" .}} {{end}}
+{{if .TypeString.Json }} {{GenTypeTemplate "string_json" .}} {{end}}
 {{end}}
 {{- end -}}
 

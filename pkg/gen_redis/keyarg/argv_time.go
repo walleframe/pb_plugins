@@ -18,6 +18,10 @@ import (
 	"strings"
 )
 
+var (
+	WTimePkg = "github.com/walleframe/walle/util/wtime"
+)
+
 type TimeArg struct {
 	EmptyArg
 	fun string
@@ -26,7 +30,7 @@ type TimeArg struct {
 
 // 需要导入的包
 func (x *TimeArg) Imports() []string {
-	return []string{"github.com/walleframe/walle/util/wtime"}
+	return []string{WTimePkg}
 }
 
 // 格式化代码

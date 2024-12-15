@@ -160,3 +160,25 @@ func (x *argIndex) Get() int {
 	*x++
 	return int(*x)
 }
+
+// 检测两组参数内是否有重复的参数名称
+func CheckArgNameConflict(fields, values []KeyArg) (err error) {
+	argMap := make(map[string]int)
+	for k, arg := range fields {
+		if arg.ConstructArg() {
+			name := arg.ArgName()
+			argMap[name] = k
+		}
+	}
+	for k, arg := range values {
+		if arg.ConstructArg() {
+			name := arg.ArgName()
+			if last, ok := argMap[name]; ok {
+				err = multierr.Append(err, fmt.Errorf("conflict field.name.%d name equal to value.name.%d[%s].", k, last, name))
+				continue
+			}
+			argMap[name] = k
+		}
+	}
+	return
+}

@@ -19,33 +19,26 @@ import "google/protobuf/descriptor.proto";
 
 option go_package = "github.com/walleframe/pb_plugins/extend/redis";
 
-message RedisScript {
-    optional string lua   = 1[retention = RETENTION_SOURCE];
-    optional string argv  = 2[retention = RETENTION_SOURCE];
-    optional string reply = 3[retention = RETENTION_SOURCE];
-}
-
-/**
- * Extension of protobuf file options.
- */
 extend google.protobuf.FileOptions {
-    optional string pkg_svc  = 21000[retention = RETENTION_SOURCE];  // default: github.com/walleframe/svc_redis
-    optional string pkg_util = 21001[retention = RETENTION_SOURCE];  // default: github.com/walleframe/walle/util
-    optional string pkg_pb   = 21002[retention = RETENTION_SOURCE];  // protobuf message pkg: github.com/gogo/protobuf/proto
-    optional string pkg_wpb  = 21003[retention = RETENTION_SOURCE];  // wpb message, pkg: github.com/walleframe/walle/process/message
+    string op_package = 21000 [retention = RETENTION_SOURCE];
 }
 
-/**
- * Extension of protobuf message options.
- */
+message RedisScript {
+    string name  = 1 [retention = RETENTION_SOURCE];
+    string lua   = 2 [retention = RETENTION_SOURCE];
+    string argv  = 3 [retention = RETENTION_SOURCE];
+    string reply = 4 [retention = RETENTION_SOURCE];
+}
+
 extend google.protobuf.MessageOptions {
-    optional string      key      = 21100[retention = RETENTION_SOURCE];  // must set
-    optional string      type     = 21101[retention = RETENTION_SOURCE];  // default: only keys. '!' means not key operation. string,hash,set,zset,lock
-    optional int32       key_size = 21102[retention = RETENTION_SOURCE];  // default: 64
-    optional bool        protobuf = 21103[retention = RETENTION_SOURCE];  // default: false
-    optional bool        wpb      = 21104[retention = RETENTION_SOURCE];  // default: false
-    optional string      field    = 21105[retention = RETENTION_SOURCE];  // use merged field
-    optional string      value    = 21106[retention = RETENTION_SOURCE];  // use merged value
-    optional string      member   = 21107[retention = RETENTION_SOURCE];  // use merged member for zset
-    repeated RedisScript script   = 21108[retention = RETENTION_SOURCE];  // redis script support
+    string               key      = 21100 [retention = RETENTION_SOURCE];
+    string               type     = 21101 [retention = RETENTION_SOURCE];
+    int32                size     = 21102 [retention = RETENTION_SOURCE];
+    bool                 op_field = 21103 [retention = RETENTION_SOURCE];
+    string               field    = 21104 [retention = RETENTION_SOURCE];
+    string               value    = 21105 [retention = RETENTION_SOURCE];
+    string               member   = 21106 [retention = RETENTION_SOURCE];
+    repeated RedisScript script   = 21107 [retention = RETENTION_SOURCE];
+    bool                 json     = 21108 [retention = RETENTION_SOURCE];
+    bool                 pb       = 21109 [retention = RETENTION_SOURCE];
 }

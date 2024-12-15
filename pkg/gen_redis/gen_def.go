@@ -63,6 +63,7 @@ type RedisTypeString struct {
 	String   bool
 	Protobuf bool // github.com/gogo/protobuf/proto
 	WProto   bool // github.com/walleframe/walle/process/message
+	Json     bool // encoding/json
 	Custom   bool
 	Float    bool
 }
@@ -81,6 +82,8 @@ type RedisGenType struct {
 	Number bool
 	//
 	RedisFunc string
+	// 序列化包
+	MarshalPkg string
 }
 
 func (x *RedisGenType) IsFloat() bool {

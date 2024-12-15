@@ -30,4 +30,4 @@ func (x *x{{.Name}}) SetNX(ctx context.Context, val {{.TypeString.Type}}, expire
 
 func (x *x{{.Name}}) SetEx(ctx context.Context, val {{.TypeString.Type}}, expire time.Duration) error {
 	return x.rds.SetEx(ctx, x.key, rdconv.Float64ToString(float64(val)), expire).Err()
-} {{Import "github.com/walleframe/walle/util/rdconv" "Float64ToString"}}
+} {{UsePackage "rdconv" "Float64ToString"}}

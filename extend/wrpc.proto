@@ -20,12 +20,12 @@ package wrpc;
 option go_package = "github.com/walleframe/pb_plugins/extend/wrpc";
 
 extend google.protobuf.FileOptions {
-    optional bool stub_client = 22000[retention = RETENTION_SOURCE];  // Generate client stubs.
+    bool stub_client = 22000 [retention = RETENTION_SOURCE];  // Generate client stubs.
 }
 
 /**
  * Extension of protobuf service options.
  */
 extend google.protobuf.ServiceOptions {
-    optional bool stub_service = 22100[retention = RETENTION_SOURCE];  // Generate client stubs.
+    bool stub_service = 22100 [retention = RETENTION_SOURCE];  // Generate client stubs.
 }

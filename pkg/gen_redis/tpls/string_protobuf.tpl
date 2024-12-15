@@ -33,4 +33,4 @@ func (x *x{{.Name}}) Get(ctx context.Context, pb proto.Message) error {
 		return err
 	}
 	return nil
-} {{Import "github.com/walleframe/walle/util" "StringToBytes"}}
+} {{UsePackage "util" "StringToBytes"}}{{UsePackage "proto" "Marshal/Unmarshal/Message"}}
