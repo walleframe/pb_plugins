@@ -1,0 +1,45 @@
+#+startup: content
+#+title: zerolog生成插件
+* protoc-gen-zerolog
+给pb消息生成zerolog的object和Array方法.
+
+因为zerolog不支持匿名函数的对象序列化方式. 所以所有map结构体都是单独生成一个结构体别名,然后添加zerolog的Object接口.
+
+#+begin_src protobuf
+message ZerologMessage {
+  int32 id = 1;
+  uint32 seq = 2;
+  int64 ver = 3;
+  string version = 4;
+  map<int32, int32> mapdata = 5;
+}
+#+end_src
+
+#+begin_src go
+// map类型字段
+type ZerologMessage_Mapdata map[int32]int32
+
+func (field ZerologMessage_Mapdata) MarshalZerologObject(e *zerolog.Event) {
+	for k, v := range field {
+		e.Int32(strconv.FormatInt(int64(k), 10), v)
+	}
+}
+
+// 结构体类型的Object方法
+func (obj *ZerologMessage) MarshalZerologObject(e *zerolog.Event) {
+	e.Int32("id", obj.Id)
+	e.Uint32("seq", obj.Seq)
+	e.Int64("ver", obj.Ver)
+	e.Str("version", obj.Version)
+	e.Object("mapdata", ZerologMessage_Mapdata(obj.Mapdata))
+}
+
+// 结构体类型的Array方法
+type ZerologMessageArray []*ZerologMessage
+
+func (obj ZerologMessageArray) MarshalZerologArray(a *zerolog.Array) {
+	for _, v := range obj {
+		a.Object(v)
+	}
+}
+#+end_src
