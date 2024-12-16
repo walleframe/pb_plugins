@@ -397,7 +397,7 @@ redis-cli hgetall u:hash:111 => uid=111
    只要有拼接数据存在,就不会生成返回map结构的接口.
 
    比如设置了 ~redis.field~ ,结构体中的字段就是 hash结构的value类型.
-   
+
 *** 2个字段的结构体.
  - 第一个字段 定义field类型,第二个字段 定义value类型. 支持scan操作.
  - field 类型仅支持基础类型
@@ -470,20 +470,27 @@ member *不支持 bool 类型,数组类型和map类型* ,score 仅支持有符�
 只支持生成对一个key进行操作的redis script相关代码. 同一个key(message)定义,可以添加多个脚本.
 
 定义一个redis script,必须设置3个选项:
- 1. 以 ~redis.script.~ 开头
- 2. 以 ~.lua~ 结尾,定义实际lua脚本数据.
- 3. 以 ~.argv~ 结尾,定义脚本参数. 规则参考 ~redis.field~.
- 4. 以 ~.reply~ 结尾, 定义脚本返回值. 规则参考 ~redis.field~.
+ 1. ~name~ 脚本名,同一个消息体内必须不能相同.
+ 2. ~lua~ 定义实际lua脚本数据.
+ 3. ~argv~ 定义脚本参数. 规则参考 ~redis.field~.
+ 4. ~reply~ 定义脚本返回值. 规则参考 ~redis.field~.
 
 
-例如定义名为 ~operate_name~ 的脚本.
-#+begin_example
-redis.script.operate_name.lua = "lua script";
-redis.script.operate_name.argv = "$x1=int32:$x2=int8:$string";
-redis.script.operate_name.reply = "$count=int32";
-#+end_example
+例如定义名为 ~test~ 的脚本.
+#+begin_src protobuf
+option (redis.script) = {
+	name: "test",
+	lua: "redis.call('set', KEYS[1], ARGV[1]) return redis.call('get', KEYS[1])",
+	argv: "$uid=int64",
+	reply: "$v=int64",
+};
+#+end_src
 
 脚本参数和脚本返回值必须设置不冲突的名称.
+
+#+begin_src go
+Test(ctx context.Context, uid int64) (_ int64, err error) 
+#+end_src
 
 ** lock 分布式锁
 
