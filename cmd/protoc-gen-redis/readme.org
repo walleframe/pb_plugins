@@ -489,12 +489,18 @@ option (redis.script) = {
 脚本参数和脚本返回值必须设置不冲突的名称.
 
 #+begin_src go
-Test(ctx context.Context, uid int64) (_ int64, err error) 
+Test(ctx context.Context, uid int64) (_ int64, err error)
 #+end_src
 
 ** lock 分布式锁
 
 ~redis.type = "lock"~
+
+#+begin_src go
+func (x *xXXXLock) Lock(ctx context.Context, expiration time.Duration) (lockID string, err error)
+func (x *xXXXLock) UnLock(ctx context.Context, lockID string) (ok bool, err error)
+func (x *xXXXLock) LockFunc(ctx context.Context, expiration time.Duration) (unlock func(ctx context.Context), err error)
+#+end_src
 
 ** TODO: redis-bitmap 有需求再弄.
 
