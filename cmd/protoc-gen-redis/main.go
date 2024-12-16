@@ -211,6 +211,7 @@ func genRedisOperation(gen *protogen.Plugin, msg *protogen.Message) (err error) 
 	case "hash":
 		err = multierr.Append(err, analyseTypeHash(msg, obj, usePb))
 	case "set":
+		err = multierr.Append(err, analyseTypeSet(msg, obj, usePb))
 	case "zset":
 	case "":
 		if !obj.TypeKeys {
@@ -399,7 +400,7 @@ func analyseTypeHash(msg *protogen.Message, obj *gen_redis.RedisObject, usePb bo
 				Name:      string(field.Desc.Name()),
 				Type:      field.Desc.Kind().String(),
 				Number:    isNumber(field.Desc.Kind()),
-				RedisFunc: utils.Title(field.Desc.Kind().String()),
+				RedisFunc: getRedisFunc(field.Desc.Kind()),
 			}
 			hash.HashObject.Fields = append(hash.HashObject.Fields, field)
 		}
@@ -444,7 +445,7 @@ func analyseTypeHash(msg *protogen.Message, obj *gen_redis.RedisObject, usePb bo
 				Name:      utils.PascalToSnake(msg.Fields[0].GoName),
 				Type:      fieldType.Kind().String(),
 				Number:    isNumber(fieldType.Kind()),
-				RedisFunc: utils.Title(fieldType.Kind().String()),
+				RedisFunc: getRedisFunc(fieldType.Kind()),
 			}
 		case opValue != "":
 			dynamic := &gen_redis.RedisHashDynamic{}
@@ -461,7 +462,7 @@ func analyseTypeHash(msg *protogen.Message, obj *gen_redis.RedisObject, usePb bo
 				Name:      utils.PascalToSnake(msg.Fields[0].GoName),
 				Type:      fieldType.Kind().String(),
 				Number:    isNumber(fieldType.Kind()),
-				RedisFunc: utils.Title(fieldType.Kind().String()),
+				RedisFunc: getRedisFunc(fieldType.Kind()),
 			}
 		}
 
@@ -479,7 +480,7 @@ func analyseTypeHash(msg *protogen.Message, obj *gen_redis.RedisObject, usePb bo
 			Name:      utils.PascalToSnake(msg.Fields[0].GoName),
 			Type:      fieldType1.Kind().String(),
 			Number:    isNumber(fieldType1.Kind()),
-			RedisFunc: utils.Title(fieldType1.Kind().String()),
+			RedisFunc: getRedisFunc(fieldType1.Kind()),
 		}
 		if fieldType2.IsList() || fieldType2.IsMap() {
 			return fmt.Errorf("redis-hash type message value [%s.%s] not support array or map type.", msg.Desc.Name(), fieldType2.Name())
@@ -488,7 +489,7 @@ func analyseTypeHash(msg *protogen.Message, obj *gen_redis.RedisObject, usePb bo
 			Name:      utils.PascalToSnake(msg.Fields[1].GoName),
 			Type:      fieldType2.Kind().String(),
 			Number:    isNumber(fieldType2.Kind()),
-			RedisFunc: utils.Title(fieldType2.Kind().String()),
+			RedisFunc: getRedisFunc(fieldType2.Kind()),
 		}
 		if fieldType2.Kind() == protoreflect.MessageKind {
 			dynamic.Value.Type = filepath.Base(string(msg.Fields[1].Message.GoIdent.GoImportPath)) + "." + msg.Fields[1].Message.GoIdent.GoName
@@ -522,99 +523,140 @@ func analyseTypeHash(msg *protogen.Message, obj *gen_redis.RedisObject, usePb bo
 	return
 }
 
-// func analyseTypeSet(msg *buildpb.MsgDesc, obj *RedisObject) (err error) {
-// 	// 最多只能有一个字段
-// 	if len(msg.Fields) > 1 {
-// 		return errors.New("redis-set type fields too many. max 1 fields")
-// 	}
-// 	opt := &RedisTypeSet{}
-// 	obj.TypeSet = opt
+func analyseTypeSet(msg *protogen.Message, obj *gen_redis.RedisObject, usePb bool) (err error) {
+	opt := &gen_redis.RedisTypeSet{}
+	obj.TypeSet = opt
 
-// 	// 无数据设置,查看是否生成通用接口
-// 	if len(msg.Fields) < 1 {
-// 		// 生成protobuf接口
-// 		if msg.Options.GetOptionBool(options.RedisOpProtobuf) && len(envFlag.ProtobufPackage) > 0 {
-// 			obj.Import(envFlag.ProtobufPackage, "Marshal/Unmarshal")
-// 			opt.Message = &RedisGenMsg{
-// 				Type: "proto.Message",
-// 				Marshal: func(objName string) string {
-// 					return fmt.Sprintf("proto.Marshal(%s)", objName)
-// 				},
-// 				Unmarshal: func(objName string, paramName string) string {
-// 					return fmt.Sprintf("proto.Unmarshal(%s,%s)", objName, paramName)
-// 				},
-// 				New: "",
-// 			}
-// 			return
-// 		}
-// 		// 生成walle message 接口
-// 		if msg.Options.GetOptionBool(options.RedisOpWalleMsg) && len(envFlag.WProtoPackage) > 0 {
-// 			obj.Import(envFlag.WProtoPackage, "MarshalObject/UnmarshalObject")
-// 			opt.Message = &RedisGenMsg{
-// 				Type: "message.Message",
-// 				Marshal: func(objName string) string {
-// 					return fmt.Sprintf("%s.MarshalObject()", objName)
-// 				},
-// 				Unmarshal: func(objName string, paramName string) string {
-// 					return fmt.Sprintf("%s.UnmarshalObject(%s)", objName, paramName)
-// 				},
-// 				New: "",
-// 			}
-// 			return
-// 		}
-// 		// 无任何设置,直接生成string类型接口
-// 		opt.BaseType = &RedisGenType{
-// 			Name:      "",
-// 			Type:      "string",
-// 			Number:    false,
-// 			RedisFunc: "String",
-// 		}
-// 		return
-// 	}
+	getOptBool := func(opt protoreflect.ExtensionType, def bool) (v bool) {
+		v = def
+		proto.RangeExtensions(msg.Desc.Options(), func(et protoreflect.ExtensionType, a any) bool {
+			if et.TypeDescriptor().FullName() == opt.TypeDescriptor().FullName() {
+				v = a.(bool)
+				return false
+			}
+			return true
+		})
+		return
+	}
 
-// 	fieldType := msg.Fields[0].Type
+	getOptString := func(opt protoreflect.ExtensionType, def string) (v string) {
+		v = def
+		proto.RangeExtensions(msg.Desc.Options(), func(et protoreflect.ExtensionType, a any) bool {
+			if et.TypeDescriptor().FullName() == opt.TypeDescriptor().FullName() {
+				v = a.(string)
+				return false
+			}
+			return true
+		})
+		return
+	}
+	// 设置此选项后将忽略其他配置选项,拼接member.
+	opMember := getOptString(redis.E_Member, "")
+	if opMember != "" {
+		// 拼接string做member
+		opt.Args, err = keyarg.MatchGoTypes(opMember, nil)
+		if err != nil {
+			return fmt.Errorf("redis-set analyse redis.member msg:%s failed.%v", msg.Desc.Name(), err)
+		}
+		log.Println("set custom member:", opt.Args)
+		return
+	}
 
-// 	switch fieldType.Type {
-// 	case buildpb.FieldType_BaseType:
-// 		switch fieldType.KeyBase {
-// 		// case buildpb.BaseTypeDesc_Binary:
-// 		// 	return errors.New("redis-string type generation not support binary basic type.")
-// 		case buildpb.BaseTypeDesc_Bool:
-// 			return errors.New("redis-set type generation not support bool basic type")
-// 		default:
-// 			opt.BaseType = &RedisGenType{
-// 				Name:      fieldType.Key,
-// 				Type:      fieldType.Key,
-// 				Number:    false,
-// 				RedisFunc: fieldType.KeyBase.String(),
-// 			}
-// 		}
-// 	case buildpb.FieldType_CustomType:
-// 		opt.Message = &RedisGenMsg{
-// 			Type: "*" + keyType(fieldType.Key),
-// 			Marshal: func(objName string) string {
-// 				return fmt.Sprintf("%s.MarshalObject()", objName)
-// 			},
-// 			Unmarshal: func(objName string, paramName string) string {
-// 				return fmt.Sprintf("%s.UnmarshalObject(%s)", objName, paramName)
-// 			},
-// 			New: "&" + keyType(fieldType.Key) + "{}",
-// 		}
-// 		if msg.Options.GetOptionBool(options.RedisOpProtobuf) && len(envFlag.ProtobufPackage) > 0 {
-// 			obj.Import(envFlag.ProtobufPackage, "Marshal/Unmarshal")
-// 			opt.Message.Marshal = func(objName string) string {
-// 				return fmt.Sprintf("proto.Marshal(%s)", objName)
-// 			}
-// 			opt.Message.Unmarshal = func(objName string, paramName string) string {
-// 				return fmt.Sprintf("proto.Unmarshal(%s,%s)", objName, paramName)
-// 			}
-// 		}
-// 	default:
-// 		return errors.New("redis-set type generation not support array or map type")
-// 	}
-
-// 	return
-// }
+	// 未指定操作另一个文件, 并且未设置op_field,操作当前结构体
+	if !gen_redis.Config.OpAnotherFile {
+		if !getOptBool(redis.E_OpField, false) {
+			pkgName := "proto"
+			if usePb {
+				obj.Import(gen_redis.Config.PkgPB, "Marshal/Unmarshal")
+			} else {
+				obj.Import(gen_redis.Config.PkgJson, "Marshal/Unmarshal")
+				pkgName = "json"
+			}
+			// 并且未设置op_field,操作当前结构体
+			typ := filepath.Base(string(msg.GoIdent.GoImportPath)) + "." + msg.GoIdent.GoName
+			opt.Message = &gen_redis.RedisGenMsg{
+				Type: "*" + typ,
+				New:  "&" + typ + "{}",
+				Marshal: func(objName string) string {
+					return fmt.Sprintf("%s.Marshal(%s)", pkgName, objName)
+				},
+				Unmarshal: func(objName, paramName string) string {
+					return fmt.Sprintf("%s.Unmarshal(%s,%s)", pkgName, paramName, objName)
+				},
+			}
+			obj.Import(string(msg.GoIdent.GoImportPath), "msg")
+			log.Println("set current custom message:", opt.Message)
+			return
+		}
+	}
+	switch len(msg.Fields) {
+	case 0:
+		// 无数据设置,生成通用接口
+		pkgName := "proto"
+		typ := "proto.Message"
+		if usePb {
+			obj.Import(gen_redis.Config.PkgPB, "Marshal/Unmarshal")
+		} else {
+			obj.Import(gen_redis.Config.PkgJson, "Marshal/Unmarshal")
+			pkgName = "json"
+			typ = "any"
+		}
+		opt.Message = &gen_redis.RedisGenMsg{
+			Type: typ,
+			New:  "",
+			Marshal: func(objName string) string {
+				return fmt.Sprintf("%s.Marshal(%s)", pkgName, objName)
+			},
+			Unmarshal: func(objName, paramName string) string {
+				return fmt.Sprintf("%s.Unmarshal(%s,%s)", pkgName, paramName, objName)
+			},
+		}
+		log.Println("set common message:", opt.Message)
+		return
+	case 1:
+		fieldType := msg.Fields[0].Desc
+		if fieldType.Kind() == protoreflect.BoolKind || fieldType.IsList() || fieldType.IsMap() {
+			return fmt.Errorf("redis-set type member not support bool/Array/Map type, msg:%s", string(msg.Desc.Name()))
+		}
+		// 自定义类型
+		if fieldType.Kind() == protoreflect.MessageKind {
+			dstMsg := msg.Fields[0].Message
+			pkgName := "proto"
+			if usePb {
+				obj.Import(gen_redis.Config.PkgPB, "Marshal/Unmarshal")
+			} else {
+				obj.Import(gen_redis.Config.PkgJson, "Marshal/Unmarshal")
+				pkgName = "json"
+			}
+			typ := filepath.Base(string(dstMsg.GoIdent.GoImportPath)) + "." + dstMsg.GoIdent.GoName
+			opt.Message = &gen_redis.RedisGenMsg{
+				Type: "*" + typ,
+				New:  "&" + typ + "{}",
+				Marshal: func(objName string) string {
+					return fmt.Sprintf("%s.Marshal(%s)", pkgName, objName)
+				},
+				Unmarshal: func(objName, paramName string) string {
+					return fmt.Sprintf("%s.Unmarshal(%s,%s)", pkgName, paramName, objName)
+				},
+			}
+			obj.Import(string(dstMsg.GoIdent.GoImportPath), "msg")
+			log.Println("set custom message:", opt.Message)
+			return
+		}
+		field := msg.Fields[0]
+		opt.BaseType = &gen_redis.RedisGenType{
+			Name:      string(field.Desc.Name()),
+			Type:      field.Desc.Kind().String(),
+			Number:    isNumber(field.Desc.Kind()),
+			RedisFunc: getRedisFunc(field.Desc.Kind()),
+		}
+		log.Println("set base type:", opt.BaseType)
+		return
+	default:
+		return fmt.Errorf("redis-set type fields count %d not support,msg:%s", len(msg.Fields), string(msg.Desc.Name()))
+	}
+	return
+}
 
 // func analyseTypeZSet(msg *buildpb.MsgDesc, obj *RedisObject) (err error) {
 // 	// 只支持1个或者2个字段
@@ -797,4 +839,26 @@ func checkHashMatchModeArg(obj *gen_redis.RedisHashDynamic) (err error) {
 		}
 	}
 	return
+}
+
+func getRedisFunc(kind protoreflect.Kind) string {
+	switch kind {
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return "Int32"
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return "Int64"
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return "Uint32"
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "Uint64"
+	case protoreflect.FloatKind:
+		return "Float32"
+	case protoreflect.DoubleKind:
+		return "Float64"
+	case protoreflect.StringKind:
+		return "String"
+	case protoreflect.BytesKind:
+		return "Binary"
+	}
+	return ""
 }

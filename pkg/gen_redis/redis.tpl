@@ -85,8 +85,11 @@ const ({{ $Name := .Name}}
 {{- if .TypeSet -}}
 ////////////////////////////////////////////////////////////
 // redis set operation
-{{if .TypeSet.BaseType }} {{GenTypeTemplate "set_type" .}} {{end}}
-{{if .TypeSet.Message }} {{GenTypeTemplate "set_message" .}} {{end}}
+{{if .TypeSet.Message -}}
+{{GenTypeTemplate "set_message" .}}
+{{else -}}
+{{GenTypeTemplate "set_type" .}}
+{{end}}
 {{end}}
 
 {{- if .TypeZSet -}}

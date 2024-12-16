@@ -119,6 +119,8 @@ type RedisGenMsg struct {
 type RedisTypeSet struct {
 	BaseType *RedisGenType
 	Message  *RedisGenMsg
+	// 拼接string做member
+	Args []keyarg.KeyArg
 }
 
 type RedisTypeZSet struct {

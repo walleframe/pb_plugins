@@ -81,7 +81,7 @@ svc管理包
 | redis.type              | string |                 | redis对应结构体类型               |
 | redis.op_field          | bool   | false           | 是否不操作消息体本身,而是操作字段 |
 | redis.field/redis.value | string |                 | 详情见 hash/set/zset类型          |
-| redis.member            | string | string          | redis-zet用来定义member拼接       |
+| redis.member            | string | string          | set/zset用来定义member拼接        |
 | redis.script            | struct | RedisScript数组 | 详情见 redis script               |
 | redis.json              | bool   | false           | 指定使用json格式序列化            |
 | redis.pb                | bool   | false           | 指定使用二进制序列化              |
@@ -270,18 +270,38 @@ redis-cli hgetall u:hash:111 => uid=111
 需要调整hvals,hfields,range等接口实现,有实际需求再弄.
 
 ** redis-set
-*** 空消息体,没有字段.
- - 设置 ~WREDIS_PB_PKG~ 环境变量,在消息体级设置选项 ~redis.protobuf=true~ 将生成通用pb相关接口
- - 设置 ~WREDIS_WPB_PKG~ 环境变量(默认已经设置),在消息体级设置选项 ~redis.wproto~ 将生成通用walle message相关接口
- - 默认生成操作string类型接口
+~redis.type = "set"~
+~redis.member~ 用来定义如何拼接一个string作为set结构体的member. 规则参考key定义中的外部输入go类型.
 
-*** 1个字段的结构体
+设置此选项后将忽略其他配置选项.
+
+例:
+#+begin_src protobuf
+message RedisSetOpMember {
+	option (redis.type) = "set";
+	option (redis.key)  = "u:set:$xx=int64";
+	option (redis.size) = 32;
+	option (redis.member) = "$uid=int64:$sex=int8:$level=uint8";
+}
+#+end_src
+对应redis结构
+#+begin_src shell
+redis-cli smembers u:set:1 => xx=1
+1) "1:1:1"                 => uid=1 sex=1 level=1
+2) "2:2:2"                 => uid=2 sex=2 level=2
+#+end_src
+
+*** 未设置 ~REDIS_OP_ANOTHRER~ 时
+默认将消息体本身作为序列化对象.
+
+*** 设置 ~REDIS_OP_ANOTHRER~ 或者 ~redis.op_field=true~
+**** 空消息体,没有字段.
+ 通用消息接口
+**** 1个字段的结构体
  - *不支持 bool 类型*
  - 未生成集合类型相关接口(有需要再加)
- - 自定义类型 默认认为结构体是walle message结构体.
-   通过设置 ~WREDIS_PB_PKG~ 环境变量和选项 ~redis.protobuf=true~ ,生成代码会认为结构体是protobuf message.
-
-*** 2个及2个以上的字段, *不支持*
+ - 自定义类型 以当前字段的结构体类型作为序列化对象.
+**** 2个及2个以上的字段, *不支持*
 
 ** redis-zset
 - member*不支持 bool 类型*,score 仅支持有符号的数值和float类型.
@@ -322,5 +342,7 @@ redis.script.operate_name.reply = "$count=int32";
 ~redis.type = "lock"~
 
 ** TODO: redis-bitmap 有需求再弄.
+
+** TODO: redis-zset 保存的score有效位数最多53位. 根据不同业务场景定制score. 划分53位来精确保存数值.
 
 ** NOTE: redis list/pubsub/stream/zpop 不封装在这个生成里面,之后会封成pipeline接口.

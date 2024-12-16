@@ -50,6 +50,12 @@ db_user.UserInfoNamedSQL(128).Select().Uid().Name().Where().Uid().And().Email().
 // 错误的示例(ERROR EXAMPLE): => update user_info set `email`=:email where  and `email` = :email
 db_user.UserInfoNamedSQL(128).Update().Email().Where().And().Email().ToSQL()
 #+end_src
+#+begin_quote
+sql语句生成建议使用包内变量形式
+#+end_quote
+#+begin_src go
+var querySomething = db_user.UserInfoNamedSQL(128).Select().Uid().Name().Where().Uid().And().Email().Limit(10, 0).ToSQL()
+#+end_src
 
 
 ** 基础配置信息
