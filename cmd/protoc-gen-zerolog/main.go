@@ -139,7 +139,7 @@ func genZerologField(f *protogen.Field, msg *gen_zerolog.Message, zlog *gen_zero
 func getMapFieldType(f *protogen.Field) string {
 	key := f.Message.Fields[0]
 	value := f.Message.Fields[1]
-	typ := "map[" + key.Desc.Kind().String() + "]"
+	typ := "map[" + getFieldGoType(key.Desc.Kind()) + "]"
 	if value.Desc.Kind() == protoreflect.MessageKind {
 		if value.Message.GoIdent.GoImportPath == f.Parent.GoIdent.GoImportPath {
 			typ += "*" + value.Message.GoIdent.GoName
@@ -147,7 +147,7 @@ func getMapFieldType(f *protogen.Field) string {
 			typ += "*" + filepath.Base(string(value.Message.GoIdent.GoImportPath)) + "." + value.Message.GoIdent.GoName
 		}
 	} else {
-		typ += value.Desc.Kind().String()
+		typ += getFieldGoType(value.Desc.Kind())
 	}
 	return typ
 }
@@ -278,6 +278,28 @@ func getFieldFunc(f *protogen.Field, fcfg *gen_zerolog.Field, zlog *gen_zerolog.
 		return "Float32"
 	case protoreflect.DoubleKind:
 		return "Float64"
+	}
+	return ""
+}
+
+func getFieldGoType(kind protoreflect.Kind) string {
+	switch kind {
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return "int32"
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return "int64"
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return "uint32"
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "uint64"
+	case protoreflect.FloatKind:
+		return "float32"
+	case protoreflect.DoubleKind:
+		return "float64"
+	case protoreflect.StringKind:
+		return "string"
+	case protoreflect.BytesKind:
+		return "[]byte"
 	}
 	return ""
 }

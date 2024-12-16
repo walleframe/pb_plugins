@@ -302,14 +302,14 @@ func genDBTable(gen *protogen.Plugin, conf *gen_mysql.SqlTable, msg *protogen.Me
 func parseMysqlField(table *gen_mysql.SqlTable, field *protogen.Field) (err error) {
 	col := &gen_mysql.SqlColumn{
 		Name:   utils.PascalToSnake(field.GoName), // 大驼峰转小写加下划线
-		GoType: field.Desc.Kind().String(),
+		GoType: getFieldGoType(field.Desc.Kind()),
 	}
 	if field.Desc.IsList() {
 		col.GoType = "[]" + col.GoType
 	}
 	if field.Desc.IsMap() {
-		col.GoType = "map[" + field.Message.Fields[0].Desc.Kind().String() + "]" +
-			field.Message.Fields[1].Desc.Kind().String()
+		col.GoType = "map[" + getFieldGoType(field.Message.Fields[0].Desc.Kind()) + "]" +
+			getFieldGoType(field.Message.Fields[1].Desc.Kind())
 	}
 	// log.Println("type:", col.GoType)
 	// 字段名 log.Println("x:", field.Desc.Name(), field.Desc.FullName())
@@ -366,8 +366,8 @@ func parseMysqlField(table *gen_mysql.SqlTable, field *protogen.Field) (err erro
 		col.Unmarshal = fmt.Sprintf("Slice[%s]", strings.TrimPrefix(col.GoType, "[]"))
 	} else if field.Desc.IsMap() {
 		col.Unmarshal = fmt.Sprintf("Map[%s,%s]",
-			field.Message.Fields[0].Desc.Kind().String(),
-			field.Message.Fields[1].Desc.Kind().String(),
+			getFieldGoType(field.Message.Fields[0].Desc.Kind()),
+			getFieldGoType(field.Message.Fields[1].Desc.Kind()),
 		)
 	} else {
 		switch field.Desc.Kind() {
@@ -546,4 +546,26 @@ func indexName(table *gen_mysql.SqlTable, name string, unique bool) string {
 		return "uniq_" + table.SqlTable + "_" + utils.PascalToSnake(name)
 	}
 	return "idx_" + table.SqlTable + "_" + utils.PascalToSnake(name)
+}
+
+func getFieldGoType(kind protoreflect.Kind) string {
+	switch kind {
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return "int32"
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return "int64"
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return "uint32"
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "uint64"
+	case protoreflect.FloatKind:
+		return "float32"
+	case protoreflect.DoubleKind:
+		return "float64"
+	case protoreflect.StringKind:
+		return "string"
+	case protoreflect.BytesKind:
+		return "[]byte"
+	}
+	return ""
 }

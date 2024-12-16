@@ -1,6 +1,6 @@
 
 func (x *x{{.Name}}) Set(ctx context.Context, msg any, expire time.Duration) error {
-	data, err := json.Marshal(pb)
+	data, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
@@ -8,7 +8,7 @@ func (x *x{{.Name}}) Set(ctx context.Context, msg any, expire time.Duration) err
 }
 
 func (x *x{{.Name}}) SetNX(ctx context.Context, msg any, expire time.Duration) error {
-	data, err := json.Marshal(pb)
+	data, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
@@ -16,7 +16,7 @@ func (x *x{{.Name}}) SetNX(ctx context.Context, msg any, expire time.Duration) e
 }
 
 func (x *x{{.Name}}) SetEx(ctx context.Context, msg any, expire time.Duration) error {
-	data, err := json.Marshal(pb)
+	data, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}

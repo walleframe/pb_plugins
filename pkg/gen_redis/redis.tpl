@@ -8,8 +8,16 @@ type x{{.Name}} struct{
 	rds redis.UniversalClient
 }
 
+var (
+	global{{.Name}} atomic.Value
+)
+
 func init() {
-	{{.SvcPkg}}.RegisterDBName({{.SvcPkg}}.DBType, "{{.Package}}.{{.Name}}")
+	{{.SvcPkg}}.RegisterDB("redis", "{{.Package}}", "{{.Name}}", func(c redis.UniversalClient)(err error){
+		//
+		global{{.Name}}.Store(c)
+		return nil
+	})
 }
 
 {{Doc .Doc}}
@@ -24,7 +32,7 @@ func {{.Name}}({{range $i,$arg := .Args}}{{if $arg.ConstructArg }}{{$arg.ArgName
 {{end -}}
 	return &x{{.Name}}{
 		key: buf.String(),
-		rds: {{.SvcPkg}}.GetDBLink({{.SvcPkg}}.DBType, "{{.Package}}.{{.Name}}"),
+		rds: global{{.Name}}.Load().(redis.UniversalClient),
 	}
 }
 

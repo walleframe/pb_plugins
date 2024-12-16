@@ -38,7 +38,8 @@ type GenerateEnv struct {
 	CodePath    string
 	MsgProtocol string
 	//PkgWPB        string
-	OpAnotherFile bool
+	OpAnotherFile  bool
+	CheckLuaScript bool
 }
 
 var Config = &GenerateEnv{
@@ -50,7 +51,8 @@ var Config = &GenerateEnv{
 	CodePath:    "pkg/gen/redisop/",
 	MsgProtocol: "proto",
 	//PkgWPB:        "github.com/walleframe/walle/process/message",
-	OpAnotherFile: false,
+	OpAnotherFile:  false,
+	CheckLuaScript: true,
 }
 
 func ParseConfigFromEnv() {
@@ -62,6 +64,7 @@ func ParseConfigFromEnv() {
 	utils.GetEnvString("REDIS_MSG_PROTOCOL", &Config.MsgProtocol)
 	// utils.GetEnvString("REDIS_PKG_WPB", &Config.PkgWPB)
 	utils.GetEnvBool("REDIS_OP_ANOTHER", &Config.OpAnotherFile)
+	utils.GetEnvBool("REDIS_CHECK_LUA", &Config.CheckLuaScript)
 }
 
 //go:embed redis.tpl
@@ -191,6 +194,7 @@ func Generate(obj *RedisObject) (out []*tpl.BuildOutput, err error) {
 
 	for _, pkg := range []string{
 		"context",
+		"sync/atomic",
 		"github.com/redis/go-redis/v9",
 	} {
 		obj.Import(pkg, "pkg")
