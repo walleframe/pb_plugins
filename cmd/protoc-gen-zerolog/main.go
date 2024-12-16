@@ -300,6 +300,8 @@ func getFieldGoType(kind protoreflect.Kind) string {
 		return "string"
 	case protoreflect.BytesKind:
 		return "[]byte"
+	case protoreflect.BoolKind:
+		return "bool"
 	}
 	return ""
 }

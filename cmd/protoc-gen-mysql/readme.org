@@ -165,4 +165,154 @@ option (mysql.index_v2) = {
 设置后忽略 ~mysql.pk~ , ~mysql.increment~ , ~mysql.type~, ~mysql.size~
 **** mysql.type
 只写mysql数据类型,更多定制请采用 ~mysql.column~
+** 生成说明
+关于生成的接口:
+ - 所有db都会生成的接口
+   1. Insert
+   2. InsertMany
+   3. Where 返回where查询语句拼接辅助
+   4. Select 使用Where查询数据
+   5. Count 使用Where语句
+   6. DeleteMany 使用Where语句
+   7. RangeAll 使用Where语句,处理多条数据,传递匿名函数进行依次处理
+   8. AllData 使用Where语句,返回多条数据(返回数组)
+   9. DB() *sqlx.DB 获取数据库对象,用于自定义执行sql.
+ - 必须设置PrimaryKey才会生成的接口
+   1. Update 并且 ~mysql.update~ / ~mysql.upsert~ 为true(默认是true)
+   2. Upsert/UpsertMany方法 并且  ~mysql.upsert~ 为true(默认是true).
+   3. Find/Delete 使用主键查找/删除数据库记录,处理单条记录
+   4. FindByKey/DeleteByKey 同(Find/Delete).
+      区别在于当有多个字段作为PrimaryKey时候, 会生成 ~[表名]Key~ 结构体.
+   5. FindByKeyArray/DeleteByKey 操作多条数据
+ - 有普通索引才会生成的接口
+   1. FindByIndex[IndexName] 返回多条数据
+   2. CountByIndex[IndexName]
+   3. DeleteByIndex[IndexName]
+ - 唯一性索引
+   1. FindByIndex[IndexName] 返回单条数据
+   2. DeleteByIndex[IndexName]
+
+辅助方法:
+ - New[表名]Operation 新建数据库表对象.
+ - [表名]OP 函数,用于获取数据库表对象.
+   实际实现 使用变量, 方便后续调试和测试直接替换函数.
+   例:
+   #+begin_src go
+var UserOP = func() UserOperation {
+	op := globalUserOP.Load()
+	if op == nil {
+		return nil
+	}
+	return op
+}
+   #+end_src
+ - Sync[表名]DBTable 用于同步数据库表结构和索引
+   生成代码默认会在服务启动时候,检测表和索引. 修改 ~svc_db.SyncTableColumnsAndIndex=false~ 来禁用此功能
+ - [表名]NamedSQL 辅助生成sql语句.
+
+辅助常量和变量:
+ - [表名]SQL_Create 常量 创建sql表语句
+ - [表名]SQL_TableColumns map变量. 修改表添加某个字段的语句.
+ - [表名]SQL_TableIndex map变量. 创建索引的sql语句.
+
+
 ** 代码示例
+#+begin_src protobuf
+option (mysql.db_name) = "db_user";
+
+message User {
+    option (mysql.tbl_name) = "user";
+    // option (mysql.engine)   = "InnoDB";
+    option (mysql.tbl_charset) = "utf8mb4";
+    option (mysql.tbl_collate) = "utf8mb4_0900_ai_ci";
+    // option (mysql.pks)    = "id";
+    option (mysql.engine)    = "MyISAM";
+    option (mysql.unique)    = "name(name)";
+    option (mysql.index)     = "email(email,password);visitor_id(visitor_id)";
+    option (mysql.index_v2) = {
+        name: "uk2",
+        columns: [ "email", "name", "visitor_id" ]
+    };
+
+    int64  id          = 1 [(mysql.pk) = true, (mysql.increment) = true];
+    int32  state       = 2;
+    int64  login_time  = 3;
+    string email       = 4;
+    string password    = 5;
+    string login_ip    = 6;
+    string birthday    = 7;
+    string notionality = 8;
+    string name        = 9;
+    string avatar      = 10;
+    int32  user_source = 11;
+    string visitor_id  = 12;
+    int64  created_at  = 13;
+    int64  updated_at  = 14;
+    int32  verified    = 15 [(mysql.type) = "tinyint not null defaULT 0"];
+}
+#+end_src
+
+生成接口
+#+begin_src go
+package db_user
+
+type UserKey = int64
+
+type UserOperation interface {
+	Insert(ctx context.Context, data *mysqlop.User) (res sql.Result, err error)
+	InsertMany(ctx context.Context, datas []*mysqlop.User) (res sql.Result, err error)
+
+	Update(ctx context.Context, data *mysqlop.User) (res sql.Result, err error)
+	Upsert(ctx context.Context, data *mysqlop.User) (res sql.Result, err error)
+	UpsertMany(ctx context.Context, datas []*mysqlop.User) (res sql.Result, err error)
+
+	Find(ctx context.Context, id int64) (data *mysqlop.User, err error)
+	Delete(ctx context.Context, id int64) (res sql.Result, err error)
+
+	FindByKey(ctx context.Context, id UserKey) (data *mysqlop.User, err error)
+	DeleteByKey(ctx context.Context, id UserKey) (res sql.Result, err error)
+
+	FindByKeyArray(ctx context.Context, ids []UserKey) (datas []*mysqlop.User, err error)
+	DeleteByKeyArray(ctx context.Context, ids []UserKey) (res sql.Result, err error)
+
+	FindByIndexEmail(ctx context.Context, email string, password string, limit, offset int) (datas []*mysqlop.User, err error)
+	CountByIndexEmail(ctx context.Context, email string, password string) (count int, err error)
+	DeleteByIndexEmail(ctx context.Context, email string, password string) (res sql.Result, err error)
+
+	FindByIndexVisitorId(ctx context.Context, visitor_id string, limit, offset int) (datas []*mysqlop.User, err error)
+	CountByIndexVisitorId(ctx context.Context, visitor_id string) (count int, err error)
+	DeleteByIndexVisitorId(ctx context.Context, visitor_id string) (res sql.Result, err error)
+
+	FindByIndexName(ctx context.Context, name string) (datas *mysqlop.User, err error)
+	DeleteByIndexName(ctx context.Context, name string) (res sql.Result, err error)
+
+	FindByIndexUk3(ctx context.Context, email string, name string, visitor_id string, limit, offset int) (datas []*mysqlop.User, err error)
+	CountByIndexUk3(ctx context.Context, email string, name string, visitor_id string) (count int, err error)
+	DeleteByIndexUk3(ctx context.Context, email string, name string, visitor_id string) (res sql.Result, err error)
+
+	FindByIndexUk2(ctx context.Context, email string, name string, visitor_id string) (datas *mysqlop.User, err error)
+	DeleteByIndexUk2(ctx context.Context, email string, name string, visitor_id string) (res sql.Result, err error)
+
+	Where(bufSize int) *UserWhereStmt
+	Select(ctx context.Context, where *UserWhereStmt) (datas []*mysqlop.User, err error)
+	Count(ctx context.Context, where *UserWhereStmt) (count int, err error)
+
+	DeleteMany(ctx context.Context, where *UserWhereStmt) (res sql.Result, err error)
+
+	RangeAll(ctx context.Context, where *UserWhereStmt, f func(ctx context.Context, row *mysqlop.User) bool) error
+	AllData(ctx context.Context, where *UserWhereStmt) (datas []*mysqlop.User, err error)
+
+	// use for custom named sql
+	DB() *sqlx.DB
+}
+
+var UserOP = func() UserOperation
+#+end_src
+
+使用代码
+#+begin_src go
+func xx(ctx context.Context){
+	userInfo, err := db_user.UserOP().Find(ctx, 123)
+	// ....
+}
+#+end_src

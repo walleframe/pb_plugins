@@ -170,9 +170,9 @@ func genRedisOperation(gen *protogen.Plugin, msg *protogen.Message) (err error) 
 		usePb = true
 	}
 
-	log.Printf("msg:%s redis.pb:%t redis.json:%t env:%t usePb:%t\n", msg.Desc.Name(),
-		getOptBool(redis.E_Pb, false), getOptBool(redis.E_Json, false), gen_redis.Config.MsgProtocol == "proto", usePb,
-	)
+	// log.Printf("msg:%s redis.pb:%t redis.json:%t env:%t usePb:%t\n", msg.Desc.Name(),
+	// 	getOptBool(redis.E_Pb, false), getOptBool(redis.E_Json, false), gen_redis.Config.MsgProtocol == "proto", usePb,
+	// )
 
 	redisType := strings.ToLower(strings.TrimSpace(getOptString(redis.E_Type, "")))
 
@@ -645,7 +645,7 @@ func analyseTypeSet(msg *protogen.Message, obj *gen_redis.RedisObject, usePb boo
 				},
 			}
 			obj.Import(string(dstMsg.GoIdent.GoImportPath), "msg")
-			log.Println("set custom message:", opt.Message)
+			// log.Println("set custom message:", opt.Message)
 			return
 		}
 		field := msg.Fields[0]
