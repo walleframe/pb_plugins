@@ -11,10 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package gen_zerolog
+package gen_rpcx
 
 import (
 	_ "embed"
+	"errors"
 	"strings"
 
 	"path/filepath"
@@ -26,34 +27,51 @@ import (
 //go:embed rpcx.tpl
 var mainTpl string
 
+//go:embed stub.tpl
+var stubTpl string
+
 type GenerateEnv struct {
-	SvcPkg  string
-	UtilPkg string
-	Charset string
-	Collate string
+	PkgServer   string
+	PkgClient   string
+	PkgProtocol string
+	PkgCtrl     string
+	PkgStub     string
+	StubPath    string
 }
 
 var Config = &GenerateEnv{
-	SvcPkg:  "github.com/walleframe/svc_db",
-	UtilPkg: "github.com/walleframe/walle/util",
-	Charset: "utf8mb4",
-	Collate: "utf8mb4_general_ci",
+	PkgServer:   "github.com/smallnest/rpcx/server",
+	PkgClient:   "github.com/smallnest/rpcx/client",
+	PkgProtocol: "github.com/smallnest/rpcx/protocol",
+	PkgCtrl:     "",
+	PkgStub:     "",
+	StubPath:    "pkg/gen/rpcx/",
 }
 
 func ParseConfigFromEnv() {
 	// 如果环境变量设置了值, 读取作为为默认值. 优先使用传递的参数
-	utils.GetEnvString("ZAP_COLLATE", &Config.Collate)
-	utils.GetEnvString("ZAP_CHARSET", &Config.Charset)
-	utils.GetEnvString("ZAP_UTIL_PKG", &Config.UtilPkg)
-	utils.GetEnvString("ZAP_SVC_PKG", &Config.SvcPkg)
+	utils.GetEnvString("RPCX_PKG_SERVER", &Config.PkgServer)
+	utils.GetEnvString("RPCX_PKG_CLIENT", &Config.PkgClient)
+	utils.GetEnvString("RPCX_PKG_PROTOCOL", &Config.PkgProtocol)
+	utils.GetEnvString("RPCX_PKG_CTRL", &Config.PkgCtrl)
+	utils.GetEnvString("RPCX_PKG_STUB", &Config.PkgStub)
+	utils.GetEnvString("RPCX_STUB_PATH", &Config.StubPath)
 }
 
-var gen *tpl.GoTemplate
+var genService *tpl.GoTemplate
+var genStub *tpl.GoTemplate
 
 func InitTemplate() (err error) {
-	gen = tpl.NewTemplate("zap")
-	gen.Funcs(map[string]interface{}{})
-	err = gen.Parse(mainTpl)
+	genService = tpl.NewTemplate("rpcx")
+	genService.Funcs(map[string]interface{}{})
+	err = genService.Parse(mainTpl)
+	if err != nil {
+		return err
+	}
+
+	genStub = tpl.NewTemplate("rpcx_stub")
+	genStub.Funcs(map[string]interface{}{})
+	err = genStub.Parse(stubTpl)
 	if err != nil {
 		return err
 	}
@@ -61,46 +79,138 @@ func InitTemplate() (err error) {
 	return nil
 }
 
-type ZapMessages struct {
+type File struct {
 	tpl.GoObject
 
-	File string
+	RPCFile string
+
+	PkgCtrl   string
+	Package   string
+	GoPackage string
+
+	Services []*Service
+
+	Stub *Service
 }
 
-func Generate(tbl *ZapMessages) (out []*tpl.BuildOutput, err error) {
-	tbl.Version = "0.0.1"
+type Service struct {
+	StubPkg  string
+	StubCtrl string
+	Name     string
+	Methods  []*Method
+}
 
-	// genTpl, err := gen.Clone()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	genTpl := gen
+type Method struct {
+	Name string
+	RQ   string
+	RS   string
+	Doc  tpl.Commets
+}
 
-	genTpl.AddImportFunc(tbl)
+func Generate(svc *File) (out []*tpl.BuildOutput, err error) {
+	if len(svc.Services) < 1 {
+		return nil, nil
+	}
+	svc.Version = "0.0.1"
+
+	if svc.PkgCtrl == "" {
+		svc.PkgCtrl = Config.PkgCtrl
+	}
+	if svc.PkgCtrl == "" {
+		return nil, errors.New("pkg ctrl is empty")
+	}
+	if svc.RPCFile == "" {
+		return nil, errors.New("rpc file is empty")
+	}
+
+	svc.PkgCtrl = filepath.Base(svc.PkgCtrl)
+
+	o1, err := generateRPCX(svc)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, o1...)
+
+	o2, err := generateStub(svc)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, o2...)
+
+	return
+}
+
+func generateRPCX(svc *File) (out []*tpl.BuildOutput, err error) {
+	genTpl := genService
+
+	genTpl.AddImportFunc(svc)
 
 	for _, pkg := range []string{
 		"context",
-		"database/sql",
-		"errors",
-		"strings",
-		"fmt",
-		"sync/atomic",
-		"github.com/jmoiron/sqlx",
 	} {
-		tbl.Import(pkg, "pkg")
+		svc.Import(pkg, "pkg")
 	}
-	tbl.Import(Config.SvcPkg, "svc_db")
-	tbl.Import(Config.UtilPkg, "util")
+	svc.ImportAlias("rpcx_server", Config.PkgServer, "rpcx")
+	svc.ImportAlias("rpcx_client", Config.PkgClient, "rpcx")
+	svc.Import(Config.PkgCtrl, "ctrl")
+	svc.Prepare("protocol", Config.PkgProtocol)
 
-	data, err := genTpl.Exec(tbl)
+	data, err := genTpl.Exec(svc)
 	if err != nil {
 		return nil, err
 	}
 
 	out = append(out, &tpl.BuildOutput{
-		File: filepath.Join(strings.TrimSuffix(tbl.File, filepath.Ext(tbl.File)), ".zap.go"),
+		File: svc.RPCFile,
 		Data: data,
 	})
+	return
+}
 
+func generateStub(svc *File) (out []*tpl.BuildOutput, err error) {
+	genTpl := genStub
+
+	genTpl.AddImportFunc(svc)
+
+	for _, pkg := range []string{
+		"context",
+	} {
+		svc.Import(pkg, "pkg")
+	}
+	// svc.Import(Config.PkgServer, "rpcx")
+	svc.ImportAlias("rpcx_client", Config.PkgClient, "rpcx")
+	svc.Import(Config.PkgStub, "stub")
+	svc.Import(svc.GoPackage, "current")
+	pkgName := filepath.Base(svc.GoPackage)
+
+	for _, v := range svc.Services {
+		v.StubCtrl = filepath.Base(Config.PkgStub)
+		svc.Stub = v
+
+		backup := v.Methods
+		v.Methods = make([]*Method, 0, len(backup))
+		for _, method := range backup {
+			m := *method
+			if !strings.Contains(m.RQ, ".") {
+				m.RQ = pkgName + "." + m.RQ
+			}
+			if !strings.Contains(m.RS, ".") {
+				m.RS = pkgName + "." + m.RS
+			}
+			v.Methods = append(v.Methods, &m)
+		}
+
+		data, err := genTpl.Exec(svc)
+		v.Methods = backup
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, &tpl.BuildOutput{
+			File: filepath.Join(Config.StubPath, v.StubPkg, v.StubPkg+".stub.go"),
+			Data: data,
+		})
+	}
+	svc.Remove(svc.GoPackage)
 	return
 }

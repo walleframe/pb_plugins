@@ -30,7 +30,7 @@ import (
 
 type GoObject struct {
 	// innerImportPkgs 导入包
-	innerImportPkgs []string
+	innerImportPkgs [][]string
 	cache           map[string]string
 	// ToolName 工具名
 	ToolName string
@@ -40,11 +40,21 @@ type GoObject struct {
 
 func (obj *GoObject) Import(pkg, fun string) (_ string) {
 	for _, v := range obj.innerImportPkgs {
-		if v == pkg {
+		if v[0] == pkg {
 			return
 		}
 	}
-	obj.innerImportPkgs = append(obj.innerImportPkgs, pkg)
+	obj.innerImportPkgs = append(obj.innerImportPkgs, []string{pkg})
+	return
+}
+
+func (obj *GoObject) ImportAlias(alias, pkg, fun string) (_ string) {
+	for _, v := range obj.innerImportPkgs {
+		if v[0] == pkg {
+			return
+		}
+	}
+	obj.innerImportPkgs = append(obj.innerImportPkgs, []string{pkg, alias})
 	return
 }
 
@@ -64,14 +74,27 @@ func (g *GoObject) UsePackage(name, fun string) (_ string) {
 	return
 }
 
+func (g *GoObject) Remove(pkg string) {
+	for k, v := range g.innerImportPkgs {
+		if v[0] == pkg {
+			g.innerImportPkgs = append(g.innerImportPkgs[:k], g.innerImportPkgs[k+1:]...)
+			return
+		}
+	}
+}
+
 func (g *GoObject) customImport() string {
 	buf := strings.Builder{}
 	buf.Grow(len(g.innerImportPkgs) * 30)
 	for _, v := range g.innerImportPkgs {
 		buf.WriteByte('\n')
 		buf.WriteByte('\t')
+		if len(v) > 1 {
+			buf.WriteString(v[1])
+			buf.WriteByte(' ')
+		}
 		buf.WriteString(`"`)
-		buf.WriteString(v)
+		buf.WriteString(v[0])
 		buf.WriteByte('"')
 	}
 	return buf.String()
