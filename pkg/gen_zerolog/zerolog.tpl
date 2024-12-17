@@ -6,8 +6,8 @@ $Import-Packages$
 {{range $i,$msg := .Msgs}}
 
 {{- range $i,$field := $msg.Fields }}{{if $field.Map}}{{$map := $field.Map}}
-type {{$msg.Type}}_{{$field.Name}} {{$map.Type}}
-func (field {{$msg.Type}}_{{$field.Name}}) MarshalZerologObject(e *zerolog.Event) {
+type {{$msg.Type}}_{{$field.Name}}Map {{$map.Type}}
+func (field {{$msg.Type}}_{{$field.Name}}Map) MarshalZerologObject(e *zerolog.Event) {
 	for k,v := range field {
 		e.{{$map.ValFunc}}({{call $map.KeyFunc "k"}}, {{call $field.Value "v"}})
 	}
@@ -15,7 +15,7 @@ func (field {{$msg.Type}}_{{$field.Name}}) MarshalZerologObject(e *zerolog.Event
 {{end}}{{end}}
 
 func (obj *{{$msg.Type}}) MarshalZerologObject(e *zerolog.Event) { {{- range $i,$field := $msg.Fields }}{{ if $field.Map}}
-	e.{{$field.Func}}("{{$field.Key}}", {{$msg.Type}}_{{$field.Name}}(obj.{{$field.Name}})){{else}}
+	e.{{$field.Func}}("{{$field.Key}}", {{$msg.Type}}_{{$field.Name}}Map(obj.{{$field.Name}})){{else}}
 	e.{{$field.Func}}("{{$field.Key}}", {{call $field.Value "obj"}}){{end -}}
 {{end}}
 }

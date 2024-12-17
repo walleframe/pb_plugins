@@ -225,8 +225,14 @@ func getFieldFunc(f *protogen.Field, fcfg *gen_zerolog.Field, zlog *gen_zerolog.
 			}
 			return "Strs"
 		case protoreflect.MessageKind, protoreflect.GroupKind:
+			GoName := f.Message.GoIdent.GoName
+			if f.Message.GoIdent.GoImportPath != f.Parent.GoIdent.GoImportPath {
+				GoName = filepath.Base(string(f.Message.GoIdent.GoImportPath)) + "." + GoName
+			}
+			//log.Println("--> ", GoName, f.Message.GoIdent.GoImportPath, f.Parent.GoIdent.GoImportPath)
+			zlog.Import(string(f.Message.GoIdent.GoImportPath), f.Message.GoIdent.GoName)
 			fcfg.Value = func(obj string) string {
-				return fmt.Sprintf(`%[3]sArray(%[1]s.%[2]s)`, obj, fcfg.Name, f.Message.GoIdent.GoName)
+				return fmt.Sprintf(`%[3]sArray(%[1]s.%[2]s)`, obj, fcfg.Name, GoName)
 			}
 			return "Array"
 		case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
@@ -265,6 +271,11 @@ func getFieldFunc(f *protogen.Field, fcfg *gen_zerolog.Field, zlog *gen_zerolog.
 	case protoreflect.EnumKind:
 		return "Stringer"
 	case protoreflect.MessageKind, protoreflect.GroupKind:
+		if f.Oneof != nil {
+			fcfg.Value = func(obj string) string {
+				return fmt.Sprintf("%s.Get%s()", obj, fcfg.Name)
+			}
+		}
 		return "Object"
 	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
 		return "Int32"
