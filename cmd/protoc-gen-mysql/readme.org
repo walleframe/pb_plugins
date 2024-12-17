@@ -170,13 +170,12 @@ option (mysql.index_v2) = {
  - 所有db都会生成的接口
    1. Insert
    2. InsertMany
-   3. Where 返回where查询语句拼接辅助
-   4. Select 使用Where查询数据
-   5. Count 使用Where语句
-   6. DeleteMany 使用Where语句
-   7. RangeAll 使用Where语句,处理多条数据,传递匿名函数进行依次处理
-   8. AllData 使用Where语句,返回多条数据(返回数组)
-   9. DB() *sqlx.DB 获取数据库对象,用于自定义执行sql.
+   3. Select 使用自定义sql查询数据(建议使用 [表名]SQL_Find 拼接sql语句,只需要写where语句部分就可以)
+   4. Count 使用自定义sql查询数量
+   5. DeleteMany 使用自定义sql删除数据(建议使用 [表名]SQL_Find 拼接sql语句,只需要写where语句部分就可以)
+   6. RangeAll 使用自定义sql查询数据,处理多条数据,传递匿名函数进行依次处理
+   7. AllData 使用自定义sql查询数据,返回多条数据(返回数组)
+   8. DB() *sqlx.DB 获取数据库对象,用于自定义执行sql.
  - 必须设置PrimaryKey才会生成的接口
    1. Update 并且 ~mysql.update~ / ~mysql.upsert~ 为true(默认是true)
    2. Upsert/UpsertMany方法 并且  ~mysql.upsert~ 为true(默认是true).
@@ -209,11 +208,13 @@ var UserOP = func() UserOperation {
  - Sync[表名]DBTable 用于同步数据库表结构和索引
    生成代码默认会在服务启动时候,检测表和索引. 修改 ~svc_db.SyncTableColumnsAndIndex=false~ 来禁用此功能
  - [表名]NamedSQL 辅助生成sql语句.
+ - [表名]SelectWhere / [表名]CountWhere / [表名]DeleteWhere 自定义拼接sql语句辅助. 使用?占位符.
 
 辅助常量和变量:
  - [表名]SQL_Create 常量 创建sql表语句
  - [表名]SQL_TableColumns map变量. 修改表添加某个字段的语句.
  - [表名]SQL_TableIndex map变量. 创建索引的sql语句.
+ - [表名]SQL_Find / [表名]SQL_Count / [表名]SQL_Delete 辅助语句, 自定义查询时候可以使用.
 
 
 ** 代码示例
@@ -293,14 +294,14 @@ type UserOperation interface {
 	FindByIndexUk2(ctx context.Context, email string, name string, visitor_id string) (datas *mysqlop.User, err error)
 	DeleteByIndexUk2(ctx context.Context, email string, name string, visitor_id string) (res sql.Result, err error)
 
-	Where(bufSize int) *UserWhereStmt
-	Select(ctx context.Context, where *UserWhereStmt) (datas []*mysqlop.User, err error)
-	Count(ctx context.Context, where *UserWhereStmt) (count int, err error)
+	Select(ctx context.Context, findSql string, args ...any) (datas []*mysqlop.User, err error)
+	Count(ctx context.Context, findSql string, args ...any) (count int, err error)
 
-	DeleteMany(ctx context.Context, where *UserWhereStmt) (res sql.Result, err error)
+	DeleteMany(ctx context.Context, findSql string, args ...any) (res sql.Result, err error)
 
-	RangeAll(ctx context.Context, where *UserWhereStmt, f func(ctx context.Context, row *mysqlop.User) bool) error
-	AllData(ctx context.Context, where *UserWhereStmt) (datas []*mysqlop.User, err error)
+	RangeAll(ctx context.Context, findSql string, oneQueryLimit int, f func(ctx context.Context, row *mysqlop.User) bool, args ...any) error
+	AllData(ctx context.Context, findSql string, oneQueryLimit int, args ...any) (datas []*mysqlop.User, err error)
+
 
 	// use for custom named sql
 	DB() *sqlx.DB
@@ -315,4 +316,11 @@ func xx(ctx context.Context){
 	userInfo, err := db_user.UserOP().Find(ctx, 123)
 	// ....
 }
+
+// 以下三条语句语义是相等的
+var (
+	query0 = "select `id`,`state`,`login_time`,`email`,`password`,`name`,`avatar`,`created_at`,`updated_at`, from user where `id` = ? and `name` = ?"
+	query1 = db_pff.UserSelectWhere(128).Id().Equal().And().Name().Equal().String()
+	query2 = db_pff.UserSQL_Find + " where `id` = ? and `name` = ?"
+)
 #+end_src

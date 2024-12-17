@@ -123,6 +123,13 @@ func (col *SqlColumn) Cond(name string) string {
 	return fmt.Sprintf("IntSignedCondition[%sWhereStmt, %s]", utils.Title(name), col.GoType)
 }
 
+func (col *SqlColumn) CondV2(name string) string {
+	if col.GoType == "string" || strings.HasPrefix(col.GoType, "map") || strings.HasPrefix(col.GoType, "[]") || strings.HasPrefix(col.GoType, "*") {
+		return fmt.Sprintf("StringConditionV2[%sExecStmt]", utils.Title(name))
+	}
+	return fmt.Sprintf("NumberConditionV2[%sExecStmt]", utils.Title(name))
+}
+
 type SqlIndex struct {
 	Name     string       // index name
 	IdxName  string       // index name
