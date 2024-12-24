@@ -13,9 +13,9 @@ func Merge{{$Name}}Field({{- range $i,$arg := $farg -}}{{$arg.ArgName}} {{$arg.A
 	return buf.String()
 }
 func Split{{$Name}}Field(val string)({{- range $i,$arg := $farg -}}{{$arg.ArgName}} {{$arg.ArgType }}, {{- end -}}err error) {
-	items := strings.Split(val, ":")
+	items := strings.Split(val, ":") {{- Import "strings" "strings.Split"}}
 	if len(items) != {{len $farg}} {
-		err = errors.New("invalid {{$Name}} field value")
+		err = errors.New("invalid {{$Name}} field value") {{- Import "errors" "errors.New"}}
 		return
 	}
 {{ range $i,$arg := $farg -}}
@@ -45,9 +45,9 @@ func Merge{{$Name}}Value({{- range $i,$arg := $varg -}}{{$arg.ArgName}} {{$arg.A
 	return buf.String()
 }
 func Split{{$Name}}Value(val string)({{- range $i,$arg := $varg -}}{{$arg.ArgName}} {{$arg.ArgType }}, {{- end -}}err error) {
-	items := strings.Split(val, ":")
+	items := strings.Split(val, ":") {{- Import "strings" "strings.Split-x"}}
 	if len(items) != {{len $varg}} {
-		err = errors.New("invalid {{$Name}} field value")
+		err = errors.New("invalid {{$Name}} field value") {{- Import "errors" "errors.New-x"}}
 		return
 	}
 {{ range $i,$arg := $varg -}}
@@ -100,7 +100,7 @@ func (x *x{{.Name}}) SetField(ctx context.Context, {{GenTypeTemplate "hash_field
 		return err
 	}
 	if num != 1 {
-		return errors.New("set field failed")
+		return errors.New("set field failed") {{- Import "errors" "errors.New-x"}}
 	}
 	return nil
 }

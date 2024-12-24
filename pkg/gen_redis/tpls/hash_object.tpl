@@ -45,7 +45,7 @@ func (x *x{{$Name}}) MGet{{Title .TypeHash.HashObject.Name}}(ctx context.Context
 	if len(ret) > {{$i}} && ret[{{$i}}] != nil {
 		obj.{{Title $field.Name}}, err = rdconv.AnyTo{{$field.RedisFunc}}(ret[ {{$i}} ])
 		if err != nil {
-			return nil, fmt.Errorf("parse {{$Name}}.{{Title $field.Name}} failed,%w", err)
+			return nil, fmt.Errorf("parse {{$Name}}.{{Title $field.Name}} failed,%w", err) {{- Import "fmt" "fmt.Errorf"}}
 		}
 	}
 {{end}}
@@ -70,7 +70,7 @@ func (x *x{{$Name}}) Set{{Title $field.Name}}(ctx context.Context, val {{$field.
 		return err
 	}
 	if n != 1 {
-		return errors.New("set {{$Name}}.{{Title $field.Name}} failed")
+		return errors.New("set {{$Name}}.{{Title $field.Name}} failed") {{- Import "errors" "errors.New"}}
 	}
 	return nil
 }

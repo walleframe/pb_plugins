@@ -15,7 +15,7 @@ func (x *x{{.Name}}) SetNX(ctx context.Context, msg any, expire time.Duration) e
 	return x.rds.SetNX(ctx, x.key, util.BytesToString(data), expire).Err()
 }
 
-func (x *x{{.Name}}) SetEx(ctx context.Context, msg any, expire time.Duration) error {
+func (x *x{{.Name}}) SetEx(ctx context.Context, msg any, expire time.Duration) error { {{- Import "time" "time.Duration"}}
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return err

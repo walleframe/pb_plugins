@@ -1,5 +1,5 @@
 {{ $Name := .Name}}
-func (x *x{{$Name}}) Lock(ctx context.Context, expiration time.Duration) (lockID string, err error) {
+func (x *x{{$Name}}) Lock(ctx context.Context, expiration time.Duration) (lockID string, err error) { {{- Import "time" "time.Duration"}}
 	var cmd *redis.BoolCmd
 	lockID = uuid.NewString() {{Import "github.com/google/uuid" "NewString"}}
 	switch expiration {

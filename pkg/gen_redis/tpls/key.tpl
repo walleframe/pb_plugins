@@ -28,7 +28,7 @@ func (x *x{{.Name}}) ExpireXX(ctx context.Context, expire time.Duration) (ok boo
 	return x.rds.ExpireLT(ctx, x.key, expire).Result()
 }
 
-func (x *x{{.Name}}) ExpireGT(ctx context.Context, expire time.Duration) (ok bool, err error) {
+func (x *x{{.Name}}) ExpireGT(ctx context.Context, expire time.Duration) (ok bool, err error) { {{- Import "time" "time.Duration"}}
 	return x.rds.ExpireLT(ctx, x.key, expire).Result()
 }
 

@@ -77,9 +77,13 @@ func main() {
 	})
 }
 
-func genRedisFile(gen *protogen.Plugin, file *protogen.File) (err error) {
+func genRedisFile(gen *protogen.Plugin, file *protogen.File) (failed error) {
+	// wg := &sync.WaitGroup{}
+	// wg.Add(len(file.Messages))
 	for _, msg := range file.Messages {
-		err = genRedisOperation(gen, msg)
+		//go func(msg *protogen.Message) {
+		//	defer wg.Done()
+		err := genRedisOperation(gen, msg)
 		if err != nil {
 			errs := multierr.Errors(err)
 			log.Printf("generate file:%s msg:%s failed:\n", file.Desc.Path(), msg.Desc.Name())
@@ -87,10 +91,12 @@ func genRedisFile(gen *protogen.Plugin, file *protogen.File) (err error) {
 				log.Println("\t", e)
 			}
 
-			err = errors.New("generate failed")
+			failed = errors.New("generate failed")
 			return
 		}
+		//}(msg)
 	}
+	//wg.Wait()
 
 	return
 }
@@ -497,6 +503,7 @@ func analyseTypeHash(msg *protogen.Message, obj *gen_redis.RedisObject, usePb bo
 			RedisFunc: getRedisFunc(fieldType2.Kind()),
 		}
 		if fieldType2.Kind() == protoreflect.MessageKind {
+			obj.Import(string(msg.Fields[1].GoIdent.GoImportPath), "msg")
 			dynamic.Value.Type = filepath.Base(string(msg.Fields[1].Message.GoIdent.GoImportPath)) + "." + msg.Fields[1].Message.GoIdent.GoName
 
 			//log.Printf("msgFrom:%s msgTo:%s usePB:%t\n", msg.Desc.Name(), dynamic.Value.Type, usePb)
@@ -703,6 +710,7 @@ func analyseTypeZSet(msg *protogen.Message, obj *gen_redis.RedisObject, usePb bo
 			pkgName = "json"
 		}
 		typ := filepath.Base(string(msg.GoIdent.GoImportPath)) + "." + msg.GoIdent.GoName
+		obj.Import(string(msg.GoIdent.GoImportPath), "msg")
 		opt.Message = &gen_redis.RedisGenMsg{
 			Type: "*" + typ,
 			New:  "&" + typ + "{}",
@@ -791,6 +799,7 @@ func analyseTypeZSet(msg *protogen.Message, obj *gen_redis.RedisObject, usePb bo
 				return fmt.Sprintf("%s.Unmarshal(%s,%s)", pkgName, paramName, objName)
 			},
 		}
+		obj.Import(string(dstMsg.GoIdent.GoImportPath), "msg")
 	} else {
 		opt.Member = &gen_redis.RedisGenType{
 			Name:      string(member.Desc.Name()),

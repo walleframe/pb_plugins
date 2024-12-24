@@ -15,7 +15,7 @@ func (x *x{{.Name}}) SetNX(ctx context.Context, pb *{{.TypeString.Type}}, expire
 	return x.rds.SetNX(ctx, x.key, util.BytesToString(data), expire).Err()
 }
 
-func (x *x{{.Name}}) SetEx(ctx context.Context, pb *{{.TypeString.Type}}, expire time.Duration) error {
+func (x *x{{.Name}}) SetEx(ctx context.Context, pb *{{.TypeString.Type}}, expire time.Duration) error { {{- Import "time" "time.Duration"}}
 	data, err := proto.Marshal(pb)
 	if err != nil {
 		return err

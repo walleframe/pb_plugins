@@ -15,7 +15,7 @@ func (x *x{{.Name}}) SetNX(ctx context.Context, pb {{.WPbPkg}}.Message, expire t
 	return x.rds.SetNX(ctx, x.key, util.BytesToString(data), expire).Err()
 }
 
-func (x *x{{.Name}}) SetEx(ctx context.Context, pb {{.WPbPkg}}.Message, expire time.Duration) error {
+func (x *x{{.Name}}) SetEx(ctx context.Context, pb {{.WPbPkg}}.Message, expire time.Duration) error { {{- Import "time" "time.Duration"}}
 	data, err := pb.MarshalObject()
 	if err != nil {
 		return err

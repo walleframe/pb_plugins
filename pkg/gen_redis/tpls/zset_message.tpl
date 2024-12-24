@@ -448,7 +448,7 @@ func (x *x{{$Name}}) ZPopGTScoreWithScores(ctx context.Context, limitScore {{$sc
 		if !redis.HasErrorPrefix(err, "NOSCRIPT") {
 			return
 		}
-		cmd = redis.NewZSliceCmd(ctx, "eval", {{.SvcPkg}}.ZPopMaxValueWithScore.Script, "1", x.key, rdconv.{{$score.RedisFunc}}ToString(limitScore), rdconv.Int64ToString(count))
+		cmd = redis.NewZSliceCmd(ctx, "eval", {{.SvcPkg}}.ZPopMaxValueWithScore.Script, "1", x.key, rdconv.{{$score.RedisFunc}}ToString(limitScore), rdconv.Int64ToString(count)) {{- UsePackage "rdconv" "ToString/FronString"}}
 		err = x.rds.Process(ctx, cmd)
 		if err != nil {
 			return

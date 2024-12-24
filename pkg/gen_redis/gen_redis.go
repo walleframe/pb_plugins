@@ -76,7 +76,7 @@ var redisOpTpls embed.FS
 var gen *tpl.GoTemplate
 
 func InitTemplate() (err error) {
-	gen = tpl.NewTemplate("redis")
+	gen = tpl.NewTemplate("redis", tpl.GoFormat2)
 	gen.Funcs(map[string]interface{}{
 		// 循环调用模板函数
 		"GenTypeTemplate": func(typeTplName string, obj *RedisObject) (string, error) {
@@ -116,10 +116,10 @@ func InitTemplate() (err error) {
 			return buf.String(), nil
 		},
 		"Import": func(pkg, alias string) string {
-			return fmt.Sprintf("import %s \"%s\"", alias, pkg)
+			return ""
 		},
 		"UsePackage": func(pkg, alias string) string {
-			return fmt.Sprintf("import %s \"%s\"", alias, pkg)
+			return ""
 		},
 	})
 
@@ -139,7 +139,7 @@ func InitTemplate() (err error) {
 		k := strings.TrimSuffix(path, filepath.Ext(path))
 		k = strings.TrimPrefix(k, "tpls/")
 
-		log.Println("regiester key:", k)
+		//log.Println("regiester key:", k)
 
 		ts := fmt.Sprintf(`{{define "%s"}} %s {{end}}`, k, strings.TrimSpace(string(data)))
 		err = gen.Parse(ts)
@@ -174,7 +174,7 @@ func InitTemplate() (err error) {
 		return fmt.Errorf("unknown message protocol %s", Config.MsgProtocol)
 	}
 
-	log.Println("init redis template success")
+	//log.Println("init redis template success")
 
 	return nil
 }
@@ -207,7 +207,7 @@ func Generate(obj *RedisObject) (out []*tpl.BuildOutput, err error) {
 	obj.Prepare("proto", Config.PkgPB)
 	obj.Prepare("json", Config.PkgJson)
 
-	// obj.Import(Config.PkgUtil, "util.Builder")
+	obj.Import(Config.PkgUtil, "util.Builder")
 	obj.Import(Config.PkgSvc, "RegisterDBName/GetDBLink")
 
 	for _, arg := range obj.Args {

@@ -5,7 +5,7 @@ func (x *x{{.Name}}) Incr(ctx context.Context) ({{.TypeString.Type}}, error) {
 }
 
 func (x *x{{.Name}}) IncrBy(ctx context.Context, val int) (_ {{.TypeString.Type}},err error) {
-	cmd := redis.NewIntCmd(ctx, "incrby", x.key, strconv.FormatInt(int64(val), 10))
+	cmd := redis.NewIntCmd(ctx, "incrby", x.key, strconv.FormatInt(int64(val), 10)) {{- Import "strconv" "strconv.Format"}}
 	err = x.rds.Process(ctx, cmd)
 	if err != nil {
 		return
@@ -19,7 +19,7 @@ func (x *x{{.Name}}) Decr(ctx context.Context) ({{.TypeString.Type}}, error) {
 }
 
 func (x *x{{.Name}}) DecrBy(ctx context.Context, val int) (_ {{.TypeString.Type}}, err error) {
-	cmd := redis.NewIntCmd(ctx, "decrby", x.key, strconv.FormatInt(int64(val), 10))
+	cmd := redis.NewIntCmd(ctx, "decrby", x.key, strconv.FormatInt(int64(val), 10)) {{- Import "strconv" "strconv.FormatInt"}}
 	err = x.rds.Process(ctx, cmd)
 	if err != nil {
 		return
@@ -39,7 +39,7 @@ func (x *x{{.Name}}) Get(ctx context.Context) ({{.TypeString.Type}}, error) {
 	return {{.TypeString.Type}}(val), nil
 }
 
-func (x *x{{.Name}}) Set(ctx context.Context, val {{.TypeString.Type}}, expire time.Duration) error {
+func (x *x{{.Name}}) Set(ctx context.Context, val {{.TypeString.Type}}, expire time.Duration) error { {{- Import "time" "time.Duration"}}
 	return x.rds.Set(ctx, x.key, strconv.Format{{if .TypeString.Signed}}Int(int64{{else}}Uint(uint64{{end}}(val), 10), expire).Err()
 }
 

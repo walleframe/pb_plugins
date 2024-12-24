@@ -9,7 +9,7 @@ func (x *x{{.Name}}) GetRange(ctx context.Context, start, end int64) (_ string, 
 }
 
 func (x *x{{.Name}}) SetRange(ctx context.Context, offset int64, value string) (_ int64, err error) {
-		cmd := redis.NewIntCmd(ctx, "setrange", x.key, strconv.FormatInt(offset, 10), value)
+		cmd := redis.NewIntCmd(ctx, "setrange", x.key, strconv.FormatInt(offset, 10), value) {{- Import "strconv" "strconv.Format"}}
 	err = x.rds.Process(ctx, cmd)
 	if err != nil {
 		return
@@ -29,7 +29,7 @@ func (x *x{{.Name}}) Get(ctx context.Context) (string, error) {
 	return x.rds.Get(ctx, x.key).Result()
 }
 
-func (x *x{{.Name}}) Set(ctx context.Context, data string, expire time.Duration) error {
+func (x *x{{.Name}}) Set(ctx context.Context, data string, expire time.Duration) error { {{- Import "time" "time.Duration"}}
 	return x.rds.Set(ctx, x.key, data, expire).Err()
 }
 

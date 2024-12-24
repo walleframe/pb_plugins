@@ -8,7 +8,7 @@ func (x *x{{$Name}}) {{Title $Script.Name}}(ctx context.Context, {{range $i,$arg
 	if err != nil {
 		if !redis.HasErrorPrefix(err, "NOSCRIPT") {
 			return
-		}
+		} {{- UsePackage "rdconv" "ToString/FronString"}}
 		cmd = redis.{{$Script.CommandName}}(ctx, "eval", x{{$Name}}{{Title $Script.Name}}Script.Script, "1", x.key, {{range $i,$arg := $Script.Args}} rdconv.{{Title $arg.ArgType}}ToString({{$arg.ArgName}}), {{end}})
 		err = x.rds.Process(ctx, cmd)
 		if err != nil {

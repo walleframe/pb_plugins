@@ -12,16 +12,16 @@ func Merge{{$Name}}Member({{- range $i,$arg := $farg -}}{{$arg.ArgName}} {{$arg.
 	return buf.String()
 }
 func Split{{$Name}}Member(val string)({{- range $i,$arg := $farg -}}{{$arg.ArgName}} {{$arg.ArgType }}, {{- end -}}err error) {
-	items := strings.Split(val, ":")
+	items := strings.Split(val, ":") {{- Import "strings" "strings.Split"}}
 	if len(items) != {{len $farg}} {
-		err = errors.New("invalid {{$Name}} mem value")
+		err = errors.New("invalid {{$Name}} mem value") {{- Import "errors" "errors.New"}}
 		return
 	}
 {{ range $i,$arg := $farg -}}
 {{- if eq $arg.ArgType "string" -}}
 	{{- $arg.ArgName}} = items[{{$i}}]
 {{ else -}}
-	{{$arg.ArgName}}, err = rdconv.StringTo{{Title $arg.ArgType}}(items[{{$i}}])
+	{{$arg.ArgName}}, err = rdconv.StringTo{{Title $arg.ArgType}}(items[{{$i}}]) {{UsePackage "rdconv" "ToString/FronString"}}
 	if err != nil {
 		return
 	}

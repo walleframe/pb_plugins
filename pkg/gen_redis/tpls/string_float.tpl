@@ -12,7 +12,7 @@ func (x *x{{.Name}}) Get(ctx context.Context) ({{.TypeString.Type}}, error) {
 }
 
 func (x *x{{.Name}}) IncrBy(ctx context.Context, val int) (_ {{.TypeString.Type}},err error) {
-	cmd := redis.NewFloatCmd(ctx, "incrbyfloat", x.key, strconv.FormatInt(int64(val), 10))
+	cmd := redis.NewFloatCmd(ctx, "incrbyfloat", x.key, strconv.FormatInt(int64(val), 10)) {{Import "strconv" "strconv.FormatInt"}}
 	err = x.rds.Process(ctx, cmd)
 	if err != nil {
 		return
@@ -20,7 +20,7 @@ func (x *x{{.Name}}) IncrBy(ctx context.Context, val int) (_ {{.TypeString.Type}
 	return {{.TypeString.Type}}(cmd.Val()), nil
 }
 
-func (x *x{{.Name}}) Set(ctx context.Context, val {{.TypeString.Type}}, expire time.Duration) error {
+func (x *x{{.Name}}) Set(ctx context.Context, val {{.TypeString.Type}}, expire time.Duration) error { {{- Import "time" "time.Duration"}}
 	return x.rds.Set(ctx, x.key, rdconv.Float64ToString(float64(val)), expire).Err()
 }
 
