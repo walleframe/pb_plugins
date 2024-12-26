@@ -42,7 +42,9 @@ type {{Title $tbl.Name}}Operation interface {
 
 
 {{- range $i,$idx := $tbl.Index }}{{if not $idx.IsUnique}}
+	FindByIndex{{Title $idx.Name}}Frist(ctx context.Context, {{range $i,$col := $idx.Columns}}{{$col.Name}} {{$col.GoType}},{{end}}) (data *{{Title $tbl.Struct}}, err error)
 	FindByIndex{{Title $idx.Name}}(ctx context.Context, {{range $i,$col := $idx.Columns}}{{$col.Name}} {{$col.GoType}},{{end}}limit,offset int) (datas []*{{Title $tbl.Struct}}, err error){{ if $tbl.GenEx }}
+	FindExByIndex{{Title $idx.Name}}Frist(ctx context.Context, {{range $i,$col := $idx.Columns}}{{$col.Name}} {{$col.GoType}},{{end}}) (data *{{Title $tbl.Struct}}Ex, err error)
 	FindExByIndex{{Title $idx.Name}}(ctx context.Context, {{range $i,$col := $idx.Columns}}{{$col.Name}} {{$col.GoType}},{{end}}limit,offset int) (datas []*{{Title $tbl.Struct}}Ex, err error){{end}}
 	CountByIndex{{Title $idx.Name}}(ctx context.Context, {{range $i,$col := $idx.Columns}}{{$col.Name}} {{$col.GoType}},{{end}}) (count int, err error)
 	DeleteByIndex{{Title $idx.Name}}(ctx context.Context, {{range $i,$col := $idx.Columns}}{{$col.Name}} {{$col.GoType}},{{end}}) (res sql.Result, err error)
@@ -553,6 +555,29 @@ func (t *x{{Title $tbl.Name}}Operation) DeleteByKeyArray(ctx context.Context, id
 {{end}}
 
 {{- range $i,$idx := $tbl.Index }}{{if not $idx.IsUnique}}
+func (t *x{{Title $tbl.Name}}Operation) FindByIndex{{Title $idx.Name}}Frist(ctx context.Context, {{range $i,$col := $idx.Columns}}{{$col.Name}} {{$col.GoType}},{{end}}) (data *{{Title $tbl.Struct}}, err error) {
+	if t.idx{{Title $idx.Name}}Find == nil {
+		t.idx{{Title $idx.Name}}Find, err = t.db.PrepareContext(ctx, {{Title $tbl.Name}}SQL_Find + " where {{range $i,$col := $idx.Columns}}{{And $i}}{{$col.SqlName}}=?{{end}} limit 1")
+		if err != nil {
+			return nil, fmt.Errorf("prepare {{$tbl.DB}}.{{$tbl.SqlTable}} find_by_index_{{$idx.Name}} failed,%w", err)
+		}
+	}
+	rows, err := t.idx{{Title $idx.Name}}Find.QueryContext(ctx, {{range $i,$col := $idx.Columns}}{{Comma $i}}{{if $col.Marshal }}{{Title $tbl.Name}}{{Title $col.Name}}Marshal({{end}}{{$col.Name}}{{if $col.Marshal }}){{end}}{{end}})
+	if err != nil {
+		return nil, fmt.Errorf("exec {{$tbl.DB}}.{{$tbl.SqlTable}} find_by_index_{{$idx.Name}} failed,%w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		data, err := scan{{Title $tbl.Name}}(rows)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	}
+	return
+}
+
 func (t *x{{Title $tbl.Name}}Operation) FindByIndex{{Title $idx.Name}}(ctx context.Context, {{range $i,$col := $idx.Columns}}{{$col.Name}} {{$col.GoType}},{{end}} limit,offset int) (datas []*{{Title $tbl.Struct}}, err error) {
 	if t.idx{{Title $idx.Name}}Find == nil {
 		t.idx{{Title $idx.Name}}Find, err = t.db.PrepareContext(ctx, {{Title $tbl.Name}}SQL_Find + " where {{range $i,$col := $idx.Columns}}{{And $i}}{{$col.SqlName}}=?{{end}} limit ?,?")
@@ -577,6 +602,28 @@ func (t *x{{Title $tbl.Name}}Operation) FindByIndex{{Title $idx.Name}}(ctx conte
 }
 
 {{ if $tbl.GenEx }}
+func (t *x{{Title $tbl.Name}}Operation) FindExByIndex{{Title $idx.Name}}Frist(ctx context.Context, {{range $i,$col := $idx.Columns}}{{$col.Name}} {{$col.GoType}},{{end}}) (data *{{Title $tbl.Struct}}Ex, err error) {
+	if t.idx{{Title $idx.Name}}FindEx == nil {
+		t.idx{{Title $idx.Name}}FindEx, err = t.db.PrepareContext(ctx, {{Title $tbl.Name}}SQL_FindRow + " where {{range $i,$col := $idx.Columns}}{{And $i}}{{$col.SqlName}}=?{{end}} limit 1")
+		if err != nil {
+			return nil, fmt.Errorf("prepare {{$tbl.DB}}.{{$tbl.SqlTable}} findex_by_index_{{$idx.Name}} failed,%w", err)
+		}
+	}
+	rows, err := t.idx{{Title $idx.Name}}FindEx.QueryContext(ctx, {{range $i,$col := $idx.Columns}}{{Comma $i}}{{if $col.Marshal }}{{Title $tbl.Name}}{{Title $col.Name}}Marshal({{end}}{{$col.Name}}{{if $col.Marshal }}){{end}}{{end}})
+	if err != nil {
+		return nil, fmt.Errorf("exec {{$tbl.DB}}.{{$tbl.SqlTable}} findex_by_index_{{$idx.Name}} failed,%w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		data, err := scan{{Title $tbl.Name}}Ex(rows)
+		if err != nil {
+			return nil, err
+		}
+		return data,nil
+	}
+	return
+}
 func (t *x{{Title $tbl.Name}}Operation) FindExByIndex{{Title $idx.Name}}(ctx context.Context, {{range $i,$col := $idx.Columns}}{{$col.Name}} {{$col.GoType}},{{end}} limit,offset int) (datas []*{{Title $tbl.Struct}}Ex, err error) {
 	if t.idx{{Title $idx.Name}}FindEx == nil {
 		t.idx{{Title $idx.Name}}FindEx, err = t.db.PrepareContext(ctx, {{Title $tbl.Name}}SQL_FindRow + " where {{range $i,$col := $idx.Columns}}{{And $i}}{{$col.SqlName}}=?{{end}} limit ?,?")
