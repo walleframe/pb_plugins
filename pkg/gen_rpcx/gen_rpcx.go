@@ -30,13 +30,18 @@ var mainTpl string
 //go:embed stub.tpl
 var stubTpl string
 
+//go:embed gin.tpl
+var ginTpl string
+
 type GenerateEnv struct {
 	PkgServer   string
 	PkgClient   string
 	PkgProtocol string
 	PkgCtrl     string
 	PkgStub     string
+	PkgGin      string
 	StubPath    string
+	GinPath     string
 }
 
 var Config = &GenerateEnv{
@@ -45,7 +50,9 @@ var Config = &GenerateEnv{
 	PkgProtocol: "github.com/smallnest/rpcx/protocol",
 	PkgCtrl:     "",
 	PkgStub:     "",
+	PkgGin:      "",
 	StubPath:    "pkg/gen/rpcx/",
+	GinPath:     "pkg/gen/gin/",
 }
 
 func ParseConfigFromEnv() {
@@ -55,11 +62,14 @@ func ParseConfigFromEnv() {
 	utils.GetEnvString("RPCX_PKG_PROTOCOL", &Config.PkgProtocol)
 	utils.GetEnvString("RPCX_PKG_CTRL", &Config.PkgCtrl)
 	utils.GetEnvString("RPCX_PKG_STUB", &Config.PkgStub)
+	utils.GetEnvString("RPCX_PKG_GIN", &Config.PkgGin)
 	utils.GetEnvString("RPCX_STUB_PATH", &Config.StubPath)
+	utils.GetEnvString("RPCX_GIN_PATH", &Config.GinPath)
 }
 
 var genService *tpl.GoTemplate
 var genStub *tpl.GoTemplate
+var genGin *tpl.GoTemplate
 
 func InitTemplate() (err error) {
 	genService = tpl.NewTemplate("rpcx")
@@ -76,6 +86,13 @@ func InitTemplate() (err error) {
 		return err
 	}
 
+	genGin = tpl.NewTemplate("rpcx_gin")
+	genGin.Funcs(map[string]interface{}{})
+	err = genGin.Parse(ginTpl)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -85,6 +102,7 @@ type File struct {
 	RPCFile string
 
 	PkgCtrl   string
+	PkgGin    string
 	Package   string
 	GoPackage string
 
@@ -96,15 +114,18 @@ type File struct {
 type Service struct {
 	StubPkg  string
 	StubCtrl string
+	StubGin  string
 	Name     string
 	Methods  []*Method
 }
 
 type Method struct {
-	Name string
-	RQ   string
-	RS   string
-	Doc  tpl.Commets
+	Name    string
+	RQ      string
+	RS      string
+	AppInfo bool
+	AppRQ   bool
+	Doc     tpl.Commets
 }
 
 func Generate(svc *File) (out []*tpl.BuildOutput, err error) {
@@ -122,8 +143,12 @@ func Generate(svc *File) (out []*tpl.BuildOutput, err error) {
 	if svc.RPCFile == "" {
 		return nil, errors.New("rpc file is empty")
 	}
+	if svc.PkgGin == "" {
+		svc.PkgGin = Config.PkgGin
+	}
 
 	svc.PkgCtrl = filepath.Base(svc.PkgCtrl)
+	svc.PkgGin = filepath.Base(svc.PkgGin)
 
 	o1, err := generateRPCX(svc)
 	if err != nil {
@@ -136,6 +161,14 @@ func Generate(svc *File) (out []*tpl.BuildOutput, err error) {
 		return nil, err
 	}
 	out = append(out, o2...)
+
+	if len(svc.PkgGin) > 0 {
+		o3, err := generateGIN(svc)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, o3...)
+	}
 
 	return
 }
@@ -208,6 +241,56 @@ func generateStub(svc *File) (out []*tpl.BuildOutput, err error) {
 
 		out = append(out, &tpl.BuildOutput{
 			File: filepath.Join(Config.StubPath, v.StubPkg, v.StubPkg+".stub.go"),
+			Data: data,
+		})
+	}
+	svc.Remove(svc.GoPackage)
+	return
+}
+
+func generateGIN(svc *File) (out []*tpl.BuildOutput, err error) {
+	genTpl := genGin
+
+	genTpl.AddImportFunc(svc)
+
+	for _, pkg := range []string{
+		"context",
+		"github.com/gin-gonic/gin",
+	} {
+		svc.Import(pkg, "pkg")
+	}
+
+	svc.Import(Config.PkgGin, "gin")
+	svc.Import(svc.GoPackage, "current")
+	pkgName := filepath.Base(svc.GoPackage)
+
+	for _, v := range svc.Services {
+		v.StubCtrl = filepath.Base(Config.PkgGin)
+		svc.Stub = v
+
+		backup := v.Methods
+		v.Methods = make([]*Method, 0, len(backup))
+		for _, method := range backup {
+			m := *method
+			if !strings.Contains(m.RQ, ".") {
+				m.RQ = pkgName + "." + m.RQ
+			}
+			if !strings.Contains(m.RS, ".") {
+				m.RS = pkgName + "." + m.RS
+			}
+			m.AppInfo = method.AppInfo
+			m.AppRQ = method.AppRQ
+			v.Methods = append(v.Methods, &m)
+		}
+
+		data, err := genTpl.Exec(svc)
+		v.Methods = backup
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, &tpl.BuildOutput{
+			File: filepath.Join(Config.GinPath, v.StubGin, v.StubGin+".go"),
 			Data: data,
 		})
 	}

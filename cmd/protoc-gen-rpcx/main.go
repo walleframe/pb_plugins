@@ -41,7 +41,9 @@ func main() {
 	flags.StringVar(&cfg.PkgProtocol, "pkg_protocol", cfg.PkgProtocol, "protocol package name")
 	flags.StringVar(&cfg.PkgCtrl, "pkg_ctrl", cfg.PkgCtrl, "controller package name")
 	flags.StringVar(&cfg.PkgStub, "pkg_stub", cfg.PkgStub, "stub package name")
+	flags.StringVar(&cfg.PkgGin, "pkg_gin", cfg.PkgGin, "gin package name")
 	flags.StringVar(&cfg.StubPath, "stub_path", cfg.StubPath, "stub file path")
+	flags.StringVar(&cfg.GinPath, "gin_path", cfg.GinPath, "gin file path")
 	protogen.Options{
 		ParamFunc: flags.Set,
 	}.Run(func(gen *protogen.Plugin) (err error) {
@@ -96,6 +98,7 @@ func genRPCXServcies(file *protogen.File, rpc *gen_rpcx.File) {
 		svc := &gen_rpcx.Service{
 			Name:    service.GoName,
 			StubPkg: utils.PascalToSnake(service.GoName) + "_client",
+			StubGin: utils.PascalToSnake(service.GoName) + "_gin",
 			Methods: make([]*gen_rpcx.Method, 0, len(service.Methods)),
 		}
 		for _, method := range service.Methods {
@@ -113,6 +116,18 @@ func genRPCXServcies(file *protogen.File, rpc *gen_rpcx.File) {
 				rpc.Import(string(method.Output.GoIdent.GoImportPath), filepath.Base(string(method.Output.GoIdent.GoImportPath)))
 			} else {
 				m.RS = method.Output.GoIdent.GoName
+			}
+			for _, field := range method.Input.Fields {
+				//log.Println("field.GoIdent.GoName: ", field.GoIdent.GoName)
+				if field.GoName == "AppInfo" {
+					m.AppInfo = true
+					break
+				}
+			}
+			if !m.AppInfo {
+				if m.RQ == "comm.AppInfo" {
+					m.AppRQ = true
+				}
 			}
 			svc.Methods = append(svc.Methods, m)
 
