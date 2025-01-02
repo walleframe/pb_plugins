@@ -112,5 +112,19 @@ func Generate(tbl *SqlTable) (out []*tpl.BuildOutput, err error) {
 
 	log.Printf("generate mysql code [%s.%s] success", tbl.DB, tbl.Name)
 
+	for _, dup := range tbl.Duplication {
+		tbl.SqlTable = dup.TableName
+		tbl.Name = dup.OpName
+		data, err := genTpl.Exec(tbl)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, &tpl.BuildOutput{
+			File: filepath.Join(Config.CodePath, strings.ToLower(tbl.DB), strings.ToLower(tbl.SqlTable)+".dbop.go"),
+			Data: data,
+		})
+		log.Printf("generate mysql duplication [%s.%s] success", tbl.DB, tbl.Name)
+	}
+
 	return
 }

@@ -30,6 +30,11 @@ message Index {
     repeated string columns = 2 [retention = RETENTION_SOURCE];
 }
 
+message Duplication {
+    string name     = 1 [retention = RETENTION_SOURCE];
+    string tbl_name = 2 [retention = RETENTION_SOURCE];
+}
+
 extend google.protobuf.MessageOptions {
     string         tbl_name    = 20100 [retention = RETENTION_SOURCE];
     bool           ignore      = 20101 [retention = RETENTION_SOURCE];
@@ -45,6 +50,9 @@ extend google.protobuf.MessageOptions {
     string         tbl_collate = 20112 [retention = RETENTION_SOURCE];
     repeated Index unique_v2   = 20113 [retention = RETENTION_SOURCE];
     repeated Index index_v2    = 20114 [retention = RETENTION_SOURCE];
+
+    // 重复生成相同结构的表
+    repeated Duplication duplication = 20115 [retention = RETENTION_SOURCE];
 }
 
 extend google.protobuf.FieldOptions {

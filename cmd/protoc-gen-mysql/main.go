@@ -208,6 +208,21 @@ func genDBTable(gen *protogen.Plugin, conf *gen_mysql.SqlTable, msg *protogen.Me
 	err = multierr.Append(err, checkAndSetIndex(table, indexKeys, false))
 	err = multierr.Append(err, checkAndSetIndex(table, uniqueKeys, true))
 
+	duplications := proto.GetExtension(msg.Desc.Options(), mysql.E_Duplication).([]*mysql.Duplication)
+	for _, dup := range duplications {
+		if dup.Name == "" {
+			err = multierr.Append(err, fmt.Errorf("duplication name is empty in table %s", table.SqlTable))
+			continue
+		}
+		if dup.TblName == "" {
+			dup.TblName = "tbl_" + dup.Name
+		}
+		table.Duplication = append(table.Duplication, &gen_mysql.DuplicateTable{
+			OpName:    dup.Name,
+			TableName: dup.TblName,
+		})
+	}
+
 	indexV2 := proto.GetExtension(msg.Desc.Options(), mysql.E_IndexV2).([]*mysql.Index)
 	uniqueV2 := proto.GetExtension(msg.Desc.Options(), mysql.E_UniqueV2).([]*mysql.Index)
 

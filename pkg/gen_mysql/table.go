@@ -21,25 +21,31 @@ import (
 	"github.com/walleframe/pb_plugins/pkg/utils"
 )
 
+type DuplicateTable struct {
+	TableName string
+	OpName    string
+}
+
 type SqlTable struct {
 	tpl.GoObject
-	SvcDB           string       // service package. not set outside
-	Charset         string       // charset
-	Collate         string       // collate
-	Engine          string       // mysql engine
-	DB              string       // generate mysql db name
-	SqlTable        string       // generate mysql table name
-	Name            string       // generate mysql operation name prefix
-	Struct          string       // import struct name, need with package name. eg: pkg.struct
-	InnerAllColumns []*SqlColumn // all columns
-	AutoIncr        *SqlColumn   // auto increment column
-	PrimaryKey      []*SqlColumn // primary key columns
-	Columns         []*SqlColumn // normal columns
-	Index           []*SqlIndex  // index columns
-	GenEx           bool         // generate extra method(contain time info)
-	GenUpdate       bool         // generate update method when have primary key
-	GenUpsert       bool         // generate upsert method when have primary key
-	CustomOptions   string       // custom mysql options
+	SvcDB           string            // service package. not set outside
+	Charset         string            // charset
+	Collate         string            // collate
+	Engine          string            // mysql engine
+	DB              string            // generate mysql db name
+	SqlTable        string            // generate mysql table name
+	Name            string            // generate mysql operation name prefix
+	Struct          string            // import struct name, need with package name. eg: pkg.struct
+	InnerAllColumns []*SqlColumn      // all columns
+	AutoIncr        *SqlColumn        // auto increment column
+	PrimaryKey      []*SqlColumn      // primary key columns
+	Columns         []*SqlColumn      // normal columns
+	Index           []*SqlIndex       // index columns
+	GenEx           bool              // generate extra method(contain time info)
+	GenUpdate       bool              // generate update method when have primary key
+	GenUpsert       bool              // generate upsert method when have primary key
+	CustomOptions   string            // custom mysql options
+	Duplication     []*DuplicateTable // duplication table
 }
 
 func (tbl *SqlTable) Clone() *SqlTable {
@@ -62,11 +68,13 @@ func (tbl *SqlTable) Clone() *SqlTable {
 		GenUpdate:       tbl.GenUpdate,
 		GenUpsert:       tbl.GenUpsert,
 		CustomOptions:   tbl.CustomOptions,
+		Duplication:     make([]*DuplicateTable, 0, len(tbl.Duplication)),
 	}
 	copy(tmp.InnerAllColumns, tbl.InnerAllColumns)
 	copy(tmp.PrimaryKey, tbl.PrimaryKey)
 	copy(tmp.Columns, tbl.Columns)
 	copy(tmp.Index, tbl.Index)
+	copy(tmp.Duplication, tbl.Duplication)
 	return tmp
 }
 
