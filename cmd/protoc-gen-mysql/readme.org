@@ -3,6 +3,7 @@
 * protoc-gen-mysql
 通过定义一个protobuf message. 来生成对应的mysql操作管理代码(避免使用反射).生成代码使用 ~sqlx.DB~ 进行数据库操作.
 
+v0.0.2 拆分输出文件 将表操作独立定义包,用于简化代码提示. 支持mysql事务.
 -----
 
 同数据库定义的package名应该相同.同一个数据库生成在一个代码包内.每个表生成一个源码文件.
@@ -36,36 +37,37 @@
 生成代码还包含了一个简单的sql语句生成(会根据调用顺序生成sql语句,应该像正常写sql那样去调用),例:
 #+begin_src go
 // insert user_info(`uid`,`email`,`name`) values(:uid,:email,:name)
-db_user.UserInfoNamedSQL(128).Insert().Uid().Email().Name().ToSQL()
+user_info_def.NamedSQL(128).Insert().Uid().Email().Name().ToSQL()
 
 // delete from user_info where `email` = :email and `name` = :name
-db_user.UserInfoNamedSQL(128).Delete().Email().And().Name().ToSQL()
+user_info_def.NamedSQL(128).Delete().Email().And().Name().ToSQL()
 
 // update user_info set `name`=:name,`email`=:email where `uid` = :uid
-db_user.UserInfoNamedSQL(128).Update().Name().Email().Where().Uid().ToSQL()
+user_info_def.NamedSQL(128).Update().Name().Email().Where().Uid().ToSQL()
 
 //select `uid`,`name` from user_info where `uid` = :uid and `email` = :email limit 10,0
-db_user.UserInfoNamedSQL(128).Select().Uid().Name().Where().Uid().And().Email().Limit(10, 0).ToSQL()
+user_info_def.NamedSQL(128).Select().Uid().Name().Where().Uid().And().Email().Limit(10, 0).ToSQL()
 
 // 错误的示例(ERROR EXAMPLE): => update user_info set `email`=:email where  and `email` = :email
-db_user.UserInfoNamedSQL(128).Update().Email().Where().And().Email().ToSQL()
+user_info_def.NamedSQL(128).Update().Email().Where().And().Email().ToSQL()
 #+end_src
 #+begin_quote
 sql语句生成建议使用包内变量形式
 #+end_quote
 #+begin_src go
-var querySomething = db_user.UserInfoNamedSQL(128).Select().Uid().Name().Where().Uid().And().Email().Limit(10, 0).ToSQL()
+var querySomething = user_info_def.NamedSQL(128).Select().Uid().Name().Where().Uid().And().Email().Limit(10, 0).ToSQL()
 #+end_src
 
 
 ** 基础配置信息
-| 描述           | 环境变量           | 命令行参数   | 默认值                           |
-|----------------+--------------------+--------------+----------------------------------|
-| 服务管理包     | MYSQL_PKG_SVC      | pkg_svc      | github.com/walleframe/svc_db     |
-| 工具包         | MYSQL_PKG_UTIL     | pkg_util     | github.com/walleframe/walle/util |
-|                | MYSQL_COLLATE      | collate      | utf8mb4_general_ci               |
-|                | MYSQL_CHARSET      | charset      | utf8mb4                          |
-| 代码路径       | MYSQL_OPCODE_PATH  | code_path    | pkg/gen/mysqlop                  |
+| 描述         | 环境变量          | 命令行参数 | 默认值                                       |
+|--------------+-------------------+------------+----------------------------------------------|
+| 服务管理包   | MYSQL_PKG_SVC     | pkg_svc    | github.com/walleframe/svc_db                 |
+| 工具包       | MYSQL_PKG_UTIL    | pkg_util   | github.com/walleframe/walle/util             |
+|              | MYSQL_COLLATE     | collate    | utf8mb4_general_ci                           |
+|              | MYSQL_CHARSET     | charset    | utf8mb4                                      |
+| 代码路径     | MYSQL_OPCODE_PATH | code_path  | pkg/gen/mysqlop                              |
+| 生成代码包名 | MYSQL_OPCODE_PKG  | code_pkg   | github.com/walleframe/svc_db/pkg/gen/mysqlop |
 
 
 uitl包
@@ -91,22 +93,23 @@ svc管理包
 | mysql.db_collate | string |                                                    |
 
 *** 消息级别
-| 名称              | 类型        | 默认值       | 说明                                            |
-|-------------------+-------------+--------------+-------------------------------------------------|
-| mysql.tbl_name    | string      | tbl_[消息名] | 数据库表名                                      |
-| mysql.ignore      | bool        | false        | 是否忽略当前消息,不生成数据库表                 |
-| mysql.engine      | string      | InnoDB       | 数据库引擎                                      |
-| mysql.pks         | string      |              | 设置primary key,值为以’,’分隔的字段名称         |
-| mysql.unique      | string      |              | unique index. name(column,...);name(column,...) |
-| mysql.index       | string      |              | table index. name(column,...);name(column,...)  |
-| mysql.update      | bool        | true         | 是否生成update方法                              |
-| mysql.upsert      | bool        | true         | 是否生成upsert方法                              |
-| mysql.gen_ex      | bool        | false        | 生成扩展消息接口(如果已经禁用扩展,忽略此字段)   |
-| mysql.tbl_opt     | string      |              | 添加自定义数据库表选项                          |
-| mysql.tbl_charset | string      |              |                                                 |
-| mysql.tbl_collate | string      |              |                                                 |
-| mysql.unique_v2   | mysql.Index |              | 更清晰的表示方式                                |
-| mysql.index_v2    | mysql.Index |              | 更清晰的表示方式                                |
+| 名称              | 类型              | 默认值       | 说明                                            |
+|-------------------+-------------------+--------------+-------------------------------------------------|
+| mysql.tbl_name    | string            | tbl_[消息名] | 数据库表名                                      |
+| mysql.ignore      | bool              | false        | 是否忽略当前消息,不生成数据库表                 |
+| mysql.engine      | string            | InnoDB       | 数据库引擎                                      |
+| mysql.pks         | string            |              | 设置primary key,值为以’,’分隔的字段名称         |
+| mysql.unique      | string            |              | unique index. name(column,...);name(column,...) |
+| mysql.index       | string            |              | table index. name(column,...);name(column,...)  |
+| mysql.update      | bool              | true         | 是否生成update方法                              |
+| mysql.upsert      | bool              | true         | 是否生成upsert方法                              |
+| mysql.gen_ex      | bool              | false        | 生成扩展消息接口(如果已经禁用扩展,忽略此字段)   |
+| mysql.tbl_opt     | string            |              | 添加自定义数据库表选项                          |
+| mysql.tbl_charset | string            |              |                                                 |
+| mysql.tbl_collate | string            |              |                                                 |
+| mysql.unique_v2   | mysql.Index       |              | 更清晰的表示方式                                |
+| mysql.index_v2    | mysql.Index       |              | 更清晰的表示方式                                |
+| mysql.duplication | mysql.Duplication |              | 重复生成相同结构体的表                          |
 
 **** mysql.index/mysql.unique/mysql.index_v2/mysql.unique_v2
 
@@ -135,6 +138,15 @@ option (mysql.index_v2) = {
 };
 #+end_src
 需要建立多个索引就写多个配置.
+
+
+~mysql.Duplication~
+#+begin_src protobuf
+message Duplication {
+    string name     = 1 [retention = RETENTION_SOURCE];
+    string tbl_name = 2 [retention = RETENTION_SOURCE];
+}
+#+end_src
 
 **** mysql.gen_ex
 扩展字段:
@@ -207,14 +219,14 @@ var UserOP = func() UserOperation {
    #+end_src
  - Sync[表名]DBTable 用于同步数据库表结构和索引
    生成代码默认会在服务启动时候,检测表和索引. 修改 ~svc_db.SyncTableColumnsAndIndex=false~ 来禁用此功能
- - [表名]NamedSQL 辅助生成sql语句.
- - [表名]SelectWhere / [表名]CountWhere / [表名]DeleteWhere 自定义拼接sql语句辅助. 使用?占位符.
+ - [表名_def].NamedSQL 辅助生成sql语句.
+ - [表名_def].SelectWhere / [表名_def].CountWhere / [表名_def].DeleteWhere 自定义拼接sql语句辅助. 使用?占位符.
 
 辅助常量和变量:
- - [表名]SQL_Create 常量 创建sql表语句
- - [表名]SQL_TableColumns map变量. 修改表添加某个字段的语句.
- - [表名]SQL_TableIndex map变量. 创建索引的sql语句.
- - [表名]SQL_Find / [表名]SQL_Count / [表名]SQL_Delete 辅助语句, 自定义查询时候可以使用.
+ - [表名_def].SQL_Create 常量 创建sql表语句
+ - [表名_def].SQL_TableColumns map变量. 修改表添加某个字段的语句.
+ - [表名_def].SQL_TableIndex map变量. 创建索引的sql语句.
+ - [表名_def].SQL_Find / [表名_def].SQL_Count / [表名_def].SQL_Delete 辅助语句, 自定义查询时候可以使用.
 
 
 ** 代码示例
@@ -320,7 +332,7 @@ func xx(ctx context.Context){
 // 以下三条语句语义是相等的
 var (
 	query0 = "select `id`,`state`,`login_time`,`email`,`password`,`name`,`avatar`,`created_at`,`updated_at`, from user where `id` = ? and `name` = ?"
-	query1 = db_pff.UserSelectWhere(128).Id().Equal().And().Name().Equal().String()
-	query2 = db_pff.UserSQL_Find + " where `id` = ? and `name` = ?"
+	query1 = user_def.SelectWhere(128).Id().Equal().And().Name().Equal().String()
+	query2 = user_def.SQL_Find + " where `id` = ? and `name` = ?"
 )
 #+end_src
