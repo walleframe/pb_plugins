@@ -235,6 +235,7 @@ func init() {
 	DefaultFuncMap["BackQuote"] = func(v string) string {
 		return "`" + v + "`"
 	}
+	DefaultFuncMap["PascalToSnake"] = utils.PascalToSnake
 }
 
 type Commets struct {

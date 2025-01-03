@@ -46,6 +46,7 @@ type SqlTable struct {
 	GenUpsert       bool              // generate upsert method when have primary key
 	CustomOptions   string            // custom mysql options
 	Duplication     []*DuplicateTable // duplication table
+	DefPkg          string
 }
 
 func (tbl *SqlTable) Clone() *SqlTable {
@@ -69,6 +70,7 @@ func (tbl *SqlTable) Clone() *SqlTable {
 		GenUpsert:       tbl.GenUpsert,
 		CustomOptions:   tbl.CustomOptions,
 		Duplication:     make([]*DuplicateTable, 0, len(tbl.Duplication)),
+		DefPkg:          tbl.DefPkg,
 	}
 	copy(tmp.InnerAllColumns, tbl.InnerAllColumns)
 	copy(tmp.PrimaryKey, tbl.PrimaryKey)

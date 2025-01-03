@@ -46,6 +46,7 @@ func main() {
 	flags.StringVar(&cfg.SvcPkg, "pkg_svc", cfg.SvcPkg, "service package name")
 	flags.StringVar(&cfg.UtilPkg, "pkg_util", cfg.UtilPkg, "util package name")
 	flags.StringVar(&cfg.CodePath, "code_path", cfg.CodePath, "code path")
+	flags.StringVar(&cfg.CodePkg, "code_pkg", cfg.CodePkg, "code package name")
 	flags.StringVar(&cfg.Charset, "charset", cfg.Charset, "charset")
 	flags.StringVar(&cfg.Collate, "collate", cfg.Collate, "collate")
 	protogen.Options{
