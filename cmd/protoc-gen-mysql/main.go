@@ -248,7 +248,7 @@ func genDBTable(gen *protogen.Plugin, conf *gen_mysql.SqlTable, msg *protogen.Me
 			}
 			if column == nil {
 				err = multierr.Append(err, fmt.Errorf("index %s column %s not found in table %s",
-					col, cfg.Name, table.SqlTable,
+					cfg.Name, col, table.SqlTable,
 				))
 				continue
 			}
@@ -278,7 +278,7 @@ func genDBTable(gen *protogen.Plugin, conf *gen_mysql.SqlTable, msg *protogen.Me
 			}
 			if column == nil {
 				err = multierr.Append(err, fmt.Errorf("index %s column %s not found in table %s",
-					col, cfg.Name, table.SqlTable,
+					cfg.Name, col, table.SqlTable,
 				))
 				continue
 			}
@@ -582,6 +582,8 @@ func getFieldGoType(kind protoreflect.Kind) string {
 		return "string"
 	case protoreflect.BytesKind:
 		return "[]byte"
+	case protoreflect.BoolKind:
+		return "bool"
 	}
 	return ""
 }

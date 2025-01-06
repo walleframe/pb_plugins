@@ -7,7 +7,7 @@ import (
 
 var (
 	// 使用正则表达式匹配大写字母, 用于将大驼峰命名转换为小写加下划线的形式
-	reToSnake = regexp.MustCompile("([a-z])([A-Z])")
+	reToSnake = regexp.MustCompile("([a-z0-9])([A-Z])")
 )
 
 // PascalToSnake 将大驼峰命名转换为小写加下划线的形式
