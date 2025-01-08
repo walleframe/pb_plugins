@@ -71,7 +71,7 @@ const (
 		",PRIMARY KEY ( {{range $i,$col := $tbl.PrimaryKey}}{{Comma $i}}{{$col.SqlName}}{{end}})" + {{end}}{{- range $i,$idx := $tbl.Index }}
 		",{{if $idx.IsUnique}}UNIQUE KEY{{else}}KEY{{end}} {{BackQuote $idx.IdxName}}({{range $i,$col := $idx.Columns}}{{Comma $i}}{{$col.SqlName}}{{end}}))"+{{end}}
 		") ENGINE={{$tbl.Engine}} DEFAULT CHARSET={{$tbl.Charset}} COLLATE={{$tbl.Collate}};"
-	
+
 	{{if $tbl.PrimaryKey}}{{if $tbl.GenUpsert }}
 	STMT_Upsert = SQL_Upsert + SQL_UpsertUpdate{{end}}
 	STMT_Delete = SQL_Delete + " where {{range $i,$col := $tbl.PrimaryKey}}{{And $i}}{{$col.SqlName}}=?{{end}}"
@@ -187,9 +187,18 @@ func (w *ExecStmt) LimitAndOffset() *ExecStmt {
 	return w
 }
 
-func (w *ExecStmt) Offset() *ExecStmt {
+func (w *ExecStmt) Limit() *ExecStmt {
 	w.buf.Write([]byte(" limit ?"))
 	return w
+}
+
+func (w *ExecStmt) Offset() *ExecStmt {
+	w.buf.Write([]byte(" offset ?"))
+	return w
+}
+
+func (w *ExecStmt) Oderby() *ExecOrder {
+	return &ExecOrder{w}
 }
 
 func (w *ExecStmt) String() string{
@@ -228,46 +237,15 @@ func SelectWhereEx(bufSize int) *ExecStmt {
 	return w
 }
 {{end}}
-
 ////////////////////////////////////////////////////////////////////////////////
-// scan interface {{$all := $tbl.AllColumns false}}
-
-func scan(rows *sql.Rows) (data *{{Title $tbl.Struct}}, err error) {
-	var values [{{len $all}}]sql.RawBytes
-	err = rows.Scan({{range $i,$col := $tbl.AllColumns false}} &values[{{$i}}],{{end}})
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal {{$tbl.DB}}.{{$tbl.SqlTable}} scan failed, %w", err)
-	}
-
-	data = &{{Title $tbl.Struct}}{} {{range $i,$col := $tbl.AllColumns false}}
-	data.{{Title $col.Name}}, err = {{Title $col.Name}}Unamrshal(values[{{$i}}])
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal {{$tbl.DB}}.{{$tbl.SqlTable}} scan {{$col.Name}} failed, %w", err)
-	}{{end}}
-	return data, nil
+// order by
+type ExecOrder struct {
+	w *ExecStmt
 }
-{{ if $tbl.GenEx }}
-func scanEx(rows *sql.Rows) (data *{{Title $tbl.Struct}}Ex, err error) {
-	var values [{{len $all}}+2]sql.RawBytes
-	err = rows.Scan({{range $i,$col := $tbl.AllColumns false}}&values[{{$i}}],{{end}}&values[{{len $all}}],&values[{{len $all}}+1])
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal {{$tbl.DB}}.{{$tbl.SqlTable}} scan_ex failed, %w", err)
-	}
 
-	data = &{{Title $tbl.Struct}}Ex{} {{range $i,$col := $tbl.AllColumns false}}
-	data.{{Title $col.Name}}, err = {{Title $col.Name}}Unamrshal(values[{{$i}}])
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal {{$tbl.DB}}.{{$tbl.SqlTable}} scan_ex {{$col.Name}} failed, %w", err)
-	}{{end}}
-	data.ModifyStamp,err = svc_db.RawToStampInt64(values[{{len $all}}])
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal {{$tbl.DB}}.{{$tbl.SqlTable}} scan_ex modify_stamp failed, %w", err)
-	}
-	data.CreateStamp,err = svc_db.RawToStampInt64(values[{{len $all}}+1])
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal {{$tbl.DB}}.{{$tbl.SqlTable}} scan_ex create_stamp failed, %w", err)
-	}
-	return data, nil
+{{range $i,$col := $tbl.AllColumns false}}
+func (o *ExecOrder) {{Title $col.Name}}() *{{$tbl.SvcDB}}.ExecOrder[ExecStmt] {
+	return {{$tbl.SvcDB}}.NewExecOrder[ExecStmt](o.w, &o.w.buf, "{{$col.Name}}")
 }
 {{end}}
 
