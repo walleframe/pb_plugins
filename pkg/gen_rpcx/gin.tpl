@@ -73,13 +73,13 @@ func (x *{{$Name}}GinHandler){{$method.Name}}(c *gin.Context) {
 
 {{if $svc.GenApi}}
 
-type {{$Name}}ApiWrapper struct {
+type ApiWrapper struct {
 	handler *{{$Name}}GinHandler
 	r *gin.Engine
 }
 // 此函数必须要在svc_gin.RegisterGinRouter的函数内调用.
-func GinApiWrap(r *gin.Engine, impl {{$Package}}.{{$Name}}Server, wrap func(wrap *{{$Name}}ApiWrapper)) {
-	x := &{{$Name}}ApiWrapper{
+func GinApiWrap(r *gin.Engine, impl {{$Package}}.{{$Name}}Server, wrap func(wrap *ApiWrapper)) {
+	x := &ApiWrapper{
 		handler: New{{$Name}}GinHandler(impl),
 		r:r,
 	} {{- range $i,$method := $methods}}
@@ -88,12 +88,12 @@ func GinApiWrap(r *gin.Engine, impl {{$Package}}.{{$Name}}Server, wrap func(wrap
 	return
 }
 
-func (x *{{$Name}}ApiWrapper) Handler() *{{$Name}}GinHandler {
+func (x *ApiWrapper) Handler() *{{$Name}}GinHandler {
 	return x.handler
 }
 
 {{range $i,$method := $methods}}
-func (x *{{$Name}}ApiWrapper){{$method.Name}}(handlers ...gin.HandlerFunc) {
+func (x *ApiWrapper){{$method.Name}}(handlers ...gin.HandlerFunc) {
 	x.r.{{$method.ApiMethod}}(Method{{$method.Name}}Path, append(handlers, x.handler.{{$method.Name}})...)
 }
 {{end}}
