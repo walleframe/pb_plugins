@@ -41,7 +41,7 @@ type Index struct {
 	unknownFields protoimpl.UnknownFields
 
 	Name    string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Columns []string `protobuf:"bytes,2,rep,name=columns,proto3" json:"columns,omitempty"`
+	Columns []string `protobuf:"bytes,2,rep,name=columns,proto3" json:"columns,omitempty"` //    repeated Update update  = 3 [retention = RETENTION_SOURCE];
 }
 
 func (x *Index) Reset() {
@@ -383,7 +383,7 @@ var (
 	// 重复生成相同结构的表
 	//
 	// repeated mysql.Duplication duplication = 20115;
-	E_Duplication = &file_mysql_proto_extTypes[17]
+	E_Duplication = &file_mysql_proto_extTypes[17] //    repeated Update update_cols = 20116 [retention = RETENTION_SOURCE];
 )
 
 // Extension fields to descriptorpb.FieldOptions.

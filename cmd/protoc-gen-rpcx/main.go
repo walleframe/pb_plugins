@@ -5,11 +5,15 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"go.uber.org/multierr"
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/spf13/pflag"
+	"github.com/walleframe/pb_plugins/extend/gin"
 	"github.com/walleframe/pb_plugins/pkg/gen_rpcx"
 	"github.com/walleframe/pb_plugins/pkg/utils"
 )
@@ -77,8 +81,20 @@ func genRPCXFile(gen *protogen.Plugin, file *protogen.File) (err error) {
 	zlog.ToolName = "protoc-gen-rpcx"
 	zlog.Package = string(file.GoPackageName)
 	zlog.GoPackage = string(file.GoImportPath)
+	getOptString := func(opt protoreflect.ExtensionType, def string) (v string) {
+		v = def
+		proto.RangeExtensions(file.Proto.Options, func(et protoreflect.ExtensionType, a any) bool {
+			if et.TypeDescriptor().FullName() == opt.TypeDescriptor().FullName() {
+				v = a.(string)
+				return false
+			}
+			return true
+		})
+		return
+	}
+
 	// 扫描要生成的服务
-	genRPCXServcies(file, zlog)
+	genRPCXServcies(file, zlog, getOptString(gin.E_Group, ""))
 	// generate
 	data, err := gen_rpcx.Generate(zlog)
 	if err != nil {
@@ -93,7 +109,72 @@ func genRPCXFile(gen *protogen.Plugin, file *protogen.File) (err error) {
 	return
 }
 
-func genRPCXServcies(file *protogen.File, rpc *gen_rpcx.File) {
+func genRPCXServcies(file *protogen.File, rpc *gen_rpcx.File, apiGroup string) (err error) {
+
+	getApiConfig := func(method *protogen.Method) (apiMethod, apiPath string) {
+		getOptString := func(opt protoreflect.ExtensionType) (v string) {
+			proto.RangeExtensions(method.Desc.Options(), func(et protoreflect.ExtensionType, a any) bool {
+				if et.TypeDescriptor().FullName() == opt.TypeDescriptor().FullName() {
+					v = a.(string)
+					return false
+				}
+				return true
+			})
+			return
+		}
+		get := getOptString(gin.E_Get)
+		post := getOptString(gin.E_Post)
+		put := getOptString(gin.E_Put)
+		del := getOptString(gin.E_Delete)
+		customs := proto.GetExtension(method.Desc.Options(), gin.E_Custom).([]*gin.ApiPath)
+		count := 0
+		if len(get) > 0 {
+			count++
+			apiMethod = "GET"
+			apiPath = get
+		}
+		if len(post) > 0 {
+			if count > 0 {
+				err = multierr.Append(err, fmt.Errorf("method %s.%s has more than one http rule[%s,%s]", file.GoPackageName, method.GoName, post, apiMethod))
+			}
+			count++
+			apiMethod = "POST"
+			apiPath = post
+
+		}
+		if len(put) > 0 {
+			if count > 0 {
+				err = multierr.Append(err, fmt.Errorf("method %s.%s has more than one http rule[%s,%s]", file.GoPackageName, method.GoName, put, apiMethod))
+			}
+			count++
+			apiMethod = "PUT"
+			apiPath = put
+		}
+		if len(del) > 0 {
+			if count > 0 {
+				err = multierr.Append(err, fmt.Errorf("method %s.%s has more than one http rule[%s,%s]", file.GoPackageName, method.GoName, del, apiMethod))
+			}
+			count++
+			apiMethod = "DELETE"
+			apiPath = del
+		}
+		if len(customs) > 0 {
+			if count > 0 {
+				err = multierr.Append(err, fmt.Errorf("method %s.%s has more than one http rule[%s,%s]", file.GoPackageName, method.GoName, customs[0].Path, apiMethod))
+			}
+			count++
+			apiMethod = customs[0].Method
+			apiPath = customs[0].Path
+		}
+		apiPath = filepath.Clean(filepath.Join("/", apiGroup, apiPath))
+		apiMethod = strings.ToUpper(apiMethod)
+		apiPath = strings.ToLower(apiPath)
+		if apiPath == "/" {
+			apiPath = ""
+			apiMethod = ""
+		}
+		return
+	}
 	for _, service := range file.Services {
 		svc := &gen_rpcx.Service{
 			Name:    service.GoName,
@@ -129,9 +210,23 @@ func genRPCXServcies(file *protogen.File, rpc *gen_rpcx.File) {
 					m.AppRQ = true
 				}
 			}
+			m.ApiMethod, m.ApiPath = getApiConfig(method)
+			if !svc.GenApi && len(m.ApiPath) > 0 {
+				svc.GenApi = true
+			}
 			svc.Methods = append(svc.Methods, m)
-
 		}
 		rpc.Services = append(rpc.Services, svc)
 	}
+	for _, svc := range rpc.Services {
+		if !svc.GenApi {
+			continue
+		}
+		for _, method := range svc.Methods {
+			if len(method.ApiMethod) == 0 {
+				err = multierr.Append(err, fmt.Errorf("method %s.%s.%s has no http rule", file.GoPackageName, svc.Name, method.Name))
+			}
+		}
+	}
+	return
 }

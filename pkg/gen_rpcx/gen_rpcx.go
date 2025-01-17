@@ -117,15 +117,18 @@ type Service struct {
 	StubGin  string
 	Name     string
 	Methods  []*Method
+	GenApi   bool
 }
 
 type Method struct {
-	Name    string
-	RQ      string
-	RS      string
-	AppInfo bool
-	AppRQ   bool
-	Doc     tpl.Commets
+	Name      string
+	RQ        string
+	RS        string
+	AppInfo   bool
+	AppRQ     bool
+	Doc       tpl.Commets
+	ApiMethod string
+	ApiPath   string
 }
 
 func Generate(svc *File) (out []*tpl.BuildOutput, err error) {

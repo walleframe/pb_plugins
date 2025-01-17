@@ -25,15 +25,33 @@ extend google.protobuf.FileOptions {
     string db_collate = 20002 [retention = RETENTION_SOURCE];
 }
 
+// message Update {
+//     string          name    = 1 [retention = RETENTION_SOURCE];
+//     repeated string columns = 2 [retention = RETENTION_SOURCE];
+// }
+
+// message Order {
+//     string name = 1 [retention = RETENTION_SOURCE];
+//     string sql  = 2 [retention = RETENTION_SOURCE];
+// }
+
 message Index {
     string          name    = 1 [retention = RETENTION_SOURCE];
     repeated string columns = 2 [retention = RETENTION_SOURCE];
+    // repeated Update update  = 3 [retention = RETENTION_SOURCE];
+    // repeated Order  order   = 4 [retention = RETENTION_SOURCE];
 }
 
 message Duplication {
     string name     = 1 [retention = RETENTION_SOURCE];
     string tbl_name = 2 [retention = RETENTION_SOURCE];
 }
+
+// message Statement {
+//     string name = 1 [retention = RETENTION_SOURCE];
+//     string select  = 2 [retention = RETENTION_SOURCE];
+// 	string update  = 3 [retention = RETENTION_SOURCE];
+// }
 
 extend google.protobuf.MessageOptions {
     string         tbl_name    = 20100 [retention = RETENTION_SOURCE];
@@ -50,9 +68,12 @@ extend google.protobuf.MessageOptions {
     string         tbl_collate = 20112 [retention = RETENTION_SOURCE];
     repeated Index unique_v2   = 20113 [retention = RETENTION_SOURCE];
     repeated Index index_v2    = 20114 [retention = RETENTION_SOURCE];
+    // repeated Index pk_v2       = 20116 [retention = RETENTION_SOURCE];
 
     // 重复生成相同结构的表
     repeated Duplication duplication = 20115 [retention = RETENTION_SOURCE];
+    // // parse sql
+    // repeated Statement statement = 20117 [retention = RETENTION_SOURCE];
 }
 
 extend google.protobuf.FieldOptions {
