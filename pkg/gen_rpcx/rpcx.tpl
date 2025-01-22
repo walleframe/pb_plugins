@@ -69,10 +69,6 @@ func (x *x{{$Name}}Server){{$method.Name}}(sctx *rpcx_server.Context) (err error
 	defer cancel()
 	err = x.impl.{{$method.Name}}(ctx, &rq, &rs)
 	if err != nil {
-		if log := x.ctrl.Logger().Trace(); log.Enabled() {
-			log.Str("service", {{$Name}}ServerName).
-				Str("method", "{{$method.Name}}").Err(err).Msg("unmarshal failed")
-		}
 		return
 	}
 	return sctx.Write(&rs)
