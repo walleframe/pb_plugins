@@ -69,7 +69,7 @@ const (
 		",{{BackQuote "modify_stamp"}} timestamp default current_timestamp on update current_timestamp" +
 		",{{BackQuote "create_stamp"}} timestamp default current_timestamp" + {{end}} {{if $tbl.PrimaryKey }}
 		",PRIMARY KEY ( {{range $i,$col := $tbl.PrimaryKey}}{{Comma $i}}{{$col.SqlName}}{{end}})" + {{end}}{{- range $i,$idx := $tbl.Index }}
-		",{{if $idx.IsUnique}}UNIQUE KEY{{else}}KEY{{end}} {{BackQuote $idx.IdxName}}({{range $i,$col := $idx.Columns}}{{Comma $i}}{{$col.SqlName}}{{end}}))"+{{end}}
+		",{{if $idx.IsUnique}}UNIQUE KEY{{else}}KEY{{end}} {{BackQuote $idx.IdxName}}({{range $i,$col := $idx.Columns}}{{Comma $i}}{{$col.SqlName}}{{end}})"+{{end}}
 		") ENGINE={{$tbl.Engine}} DEFAULT CHARSET={{$tbl.Charset}} COLLATE={{$tbl.Collate}};"
 
 	{{if $tbl.PrimaryKey}}{{if $tbl.GenUpsert }}

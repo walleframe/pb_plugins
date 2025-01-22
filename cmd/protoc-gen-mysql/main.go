@@ -407,6 +407,10 @@ func parseMysqlField(table *gen_mysql.SqlTable, field *protogen.Field) (err erro
 			}
 			table.AutoIncr = col
 		}
+		if strings.Contains(col.SqlType, "timestamp") {
+			col.Marshal = "StampInt64"
+			col.Unmarshal = col.Marshal
+		}
 		return
 	}
 	defaultSqlType := ""
@@ -454,12 +458,21 @@ func parseMysqlField(table *gen_mysql.SqlTable, field *protogen.Field) (err erro
 			defaultSqlValue = "''"
 		}
 	}
-	col.SqlType = getOptString(mysql.E_Type, defaultSqlType) + " not null default " + defaultSqlValue
+	col.SqlType = strings.TrimSpace(strings.ToLower(getOptString(mysql.E_Type, defaultSqlType) + " not null default "))
+	if strings.HasPrefix(col.SqlType, "timestamp") {
+		col.SqlType = col.SqlType + " current_timestamp"
+		col.Marshal = "StampInt64"
+		col.Unmarshal = col.Marshal
+	} else {
+		col.SqlType = col.SqlType + " " + defaultSqlValue
+	}
+
 	if getOptBool(mysql.E_Increment, false) {
 		if table.AutoIncr != nil {
 			err = multierr.Append(err, fmt.Errorf("table %s has more than one auto increment column(%s %s)", table.SqlTable, table.AutoIncr.Name, col.Name))
 		}
 		table.AutoIncr = col
+		col.SqlType = strings.Split(col.SqlType, " default")[0]
 		col.SqlType += " auto_increment"
 	}
 	return
