@@ -89,20 +89,14 @@ func (x *x{{.Name}}) GetField(ctx context.Context, {{GenTypeTemplate "hash_field
 	return Split{{$Name}}Value(v)
 {{ end -}}
 }
-func (x *x{{.Name}}) SetField(ctx context.Context, {{GenTypeTemplate "hash_field_func_arg" .}} {{GenTypeTemplate "hash_value_func_arg" .}}) (err error) {
+func (x *x{{.Name}}) SetField(ctx context.Context, {{GenTypeTemplate "hash_field_func_arg" .}} {{GenTypeTemplate "hash_value_func_arg" .}}) (ok bool,err error) {
 {{- if $value}}{{if $value.MarshalPkg }}
 	data, err := {{ $value.MarshalPkg }}.Marshal(value)
 	if err != nil {
-		return err
+		return false, err
 	} {{- end }}{{end}}
 	num, err := x.rds.HSet(ctx, x.key, {{GenTypeTemplate "hash_filed_str_arg" .}}, {{GenTypeTemplate "hash_value_str_arg" .}}).Result()
-	if err != nil {
-		return err
-	}
-	if num != 1 {
-		return errors.New("set field failed") {{- Import "errors" "errors.New-x"}}
-	}
-	return nil
+	return num == 1, err
 }
 
 {{if $field }}
