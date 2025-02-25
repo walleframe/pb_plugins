@@ -169,9 +169,11 @@ func genRPCXServcies(file *protogen.File, rpc *gen_rpcx.File, apiGroup string) (
 		apiPath = filepath.Clean(filepath.Join("/", apiGroup, apiPath))
 		apiMethod = strings.ToUpper(apiMethod)
 		apiPath = strings.ToLower(apiPath)
-		if apiPath == "/" {
+		if apiPath == "/" || apiPath == "\\" {
 			apiPath = ""
 			apiMethod = ""
+		} else {
+			apiPath = filepath.ToSlash(apiPath)
 		}
 		return
 	}
