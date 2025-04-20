@@ -230,7 +230,7 @@ func generateOpreation(tbl *SqlTable) (out []*tpl.BuildOutput, err error) {
 
 	defPkg := utils.PascalToSnake(tbl.Name) + "_def"
 	tbl.DefPkg = defPkg + "."
-	pkgPath := filepath.Join(Config.CodePkg, strings.ToLower(tbl.DB), defPkg)
+	pkgPath := filepath.ToSlash(filepath.Join(Config.CodePkg, strings.ToLower(tbl.DB), defPkg))
 	tbl.Import(pkgPath, "def")
 
 	data, err := genTpl.Exec(tbl)
@@ -298,6 +298,8 @@ func generateTx(tbl *SqlTable) (out []*tpl.BuildOutput, err error) {
 	}
 
 	tbl.Import(Config.SvcPkg, "svc_db")
+
+	log.Printf("%#v", tbl)
 
 	data, err := genTpl.Exec(tbl)
 	if err != nil {

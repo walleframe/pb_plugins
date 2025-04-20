@@ -467,6 +467,11 @@ func parseMysqlField(table *gen_mysql.SqlTable, field *protogen.Field) (err erro
 		col.SqlType = col.SqlType + " " + defaultSqlValue
 	}
 
+	// Error 1101 (42000): BLOB, TEXT, GEOMETRY or JSON column 'task_param' can't have a default value
+	if strings.Contains(col.SqlType, "blob") || strings.Contains(col.SqlType, "text") || strings.Contains(col.SqlType, "json") {
+		col.SqlType = strings.Split(col.SqlType, "default")[0]
+	}
+
 	if getOptBool(mysql.E_Increment, false) {
 		if table.AutoIncr != nil {
 			err = multierr.Append(err, fmt.Errorf("table %s has more than one auto increment column(%s %s)", table.SqlTable, table.AutoIncr.Name, col.Name))

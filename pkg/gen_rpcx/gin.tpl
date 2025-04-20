@@ -63,7 +63,7 @@ func (x *{{$Name}}GinHandler){{$method.Name}}(c *gin.Context) {
 	if err != nil {
 		if log := x.ctrl.Logger().Trace(); log.Enabled() {
 			log.Str("service", {{$Package}}.{{$Name}}ServerName).
-				Str("method", "{{$method.Name}}").Err(err).Msg("unmarshal failed")
+				Str("method", "{{$method.Name}}").Err(err).Msg("call method failed")
 		}
 		x.ctrl.Output().OutputRPCError(c, err)
 		return
