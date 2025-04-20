@@ -3,24 +3,27 @@ package {{.Package}} {{$obj := .}}
 
 $Import-Packages$
 
+// Redis操作结构体
 type x{{.Name}} struct{
 	key string
 	rds redis.UniversalClient
 }
 
 var (
+	// 全局Redis连接
 	global{{.Name}} atomic.Value
 )
 
+// 初始化Redis连接
 func init() {
 	{{.SvcPkg}}.RegisterDB("redis", "{{.Package}}", "{{.Name}}", func(c redis.UniversalClient)(err error){
-		//
 		global{{.Name}}.Store(c)
 		return nil
 	})
 }
 
 {{Doc .Doc}}
+// 创建Redis操作实例
 func {{.Name}}({{range $i,$arg := .Args}}{{if $arg.ConstructArg }}{{$arg.ArgName}} {{$arg.ArgType }}, {{end}}{{- end}}) *x{{.Name}} {
 	buf := util.Builder{}
 	buf.Grow({{.KeySize}})

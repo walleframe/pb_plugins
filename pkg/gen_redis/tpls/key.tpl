@@ -25,11 +25,11 @@ func (x *x{{.Name}}) ExpireNX(ctx context.Context, expire time.Duration) (ok boo
 }
 
 func (x *x{{.Name}}) ExpireXX(ctx context.Context, expire time.Duration) (ok bool, err error) {
-	return x.rds.ExpireLT(ctx, x.key, expire).Result()
+	return x.rds.ExpireXX(ctx, x.key, expire).Result()
 }
 
 func (x *x{{.Name}}) ExpireGT(ctx context.Context, expire time.Duration) (ok bool, err error) { {{- Import "time" "time.Duration"}}
-	return x.rds.ExpireLT(ctx, x.key, expire).Result()
+	return x.rds.ExpireGT(ctx, x.key, expire).Result()
 }
 
 func (x *x{{.Name}}) ExpireLT(ctx context.Context, expire time.Duration) (ok bool, err error) {

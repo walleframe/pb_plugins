@@ -201,6 +201,36 @@ import (
 	return
 }
 
+func (tpl *GoTemplate) ExecTemplate(name string, obj interface{}) (data []byte, err error) {
+	buf := bytes.NewBuffer(make([]byte, 0, 4096))
+	err = tpl.ExecuteTemplate(buf, name, obj)
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("$Import-Packages$")) {
+		return buf.Bytes(), nil
+	}
+
+	impObj, ok := obj.(interface {
+		customImport() string
+	})
+	if !ok {
+		return buf.Bytes(), nil
+	}
+
+	bdata := bytes.Replace(buf.Bytes(), []byte("$Import-Packages$"), []byte(fmt.Sprintf(`
+import (
+	%s
+)`, impObj.customImport())), 1)
+
+	data, err = tpl.formatCode(bdata)
+	if err != nil {
+		printWithLine(bdata)
+		return nil, fmt.Errorf("format code failed,[%w]", err)
+	}
+	return
+}
+
 func printWithLine(data []byte) {
 	for k, v := range bytes.Split(data, []byte{'\n'}) {
 		log.Printf("%d\t%s\n", k+1, string(v))
@@ -216,11 +246,21 @@ func init() {
 		}
 		buf := strings.Builder{}
 		for _, v := range doc.Doc {
+			v = strings.TrimSpace(v)
+			if !strings.HasPrefix(v, "//") {
+				buf.WriteString("// ")
+			}
 			buf.WriteString(v)
 			buf.WriteByte('\n')
 		}
 		if len(doc.TailDoc) > 0 {
-			buf.WriteString(doc.TailDoc)
+			v := doc.TailDoc
+			v = strings.TrimSpace(v)
+			if !strings.HasPrefix(v, "//") {
+				buf.WriteString("// ")
+			}
+
+			buf.WriteString(v)
 			buf.WriteByte('\n')
 		}
 		return buf.String()
